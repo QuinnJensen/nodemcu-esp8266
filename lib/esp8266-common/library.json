@@ -1,0 +1,12 @@
+{
+  "name": "esp8266-common",
+  "version": "0.1.0",
+  "description": "Shared NodeMCU ESP8266 modules: WiFi portal, MQTT client, metrics server, display UI, sensor bus, water probe, web UI, scheduler, util, app config/state",
+  "keywords": ["esp8266", "nodemcu", "mqtt", "prometheus", "wifi"],
+  "license": "MIT",
+  "frameworks": "arduino",
+  "platforms": "espressif8266",
+  "build": {
+    "srcDir": "src"
+  }
+}
