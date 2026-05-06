@@ -5,8 +5,5 @@
   "keywords": ["esp8266", "nodemcu", "mqtt", "prometheus", "wifi"],
   "license": "MIT",
   "frameworks": "arduino",
-  "platforms": "espressif8266",
-  "build": {
-    "srcDir": "src"
-  }
+  "platforms": "espressif8266"
 }
