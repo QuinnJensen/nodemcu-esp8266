@@ -1,5 +1,6 @@
 #pragma once
 #include <Arduino.h>
+#include <ArduinoJson.h>
 #include <PubSubClient.h>
 
 using MqttMessageHandler  = void (*)(const String& topic, const String& payload);
