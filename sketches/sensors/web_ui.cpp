@@ -71,39 +71,39 @@ void handleStyleCss() {
 
 void handleApiStatus() {
   StaticJsonDocument<1024> doc;
-  doc["id"]             = safeDeviceId();
-  doc["ssid"]           = WiFi.SSID();
-  doc["ip"]             = ipToString(WiFi.localIP());
-  doc["wifi_connected"] = (WiFi.status() == WL_CONNECTED);
-  doc["mqtt_connected"] = mqtt.connected();
-  doc["rssidbm"]        = WiFi.RSSI();
-  doc["freeheap"]       = ESP.getFreeHeap();
-  doc["sensorcount"]    = sensorCount;
-  doc["simulated"]      = useFakeSensors;
-  doc["networkdetected"]= sensorNetworkDetected;
-  doc["prometheusport"] = config.prometheusPort;
-  doc["uptime_ms"]      = millis() - bootMillis;
-  doc["last_status"]    = lastStatusMsg;
-  doc["last_rx_type"]   = lastRxType;
+  doc["id"]              = safeDeviceId();
+  doc["ssid"]            = WiFi.SSID();
+  doc["ip"]              = ipToString(WiFi.localIP());
+  doc["wifi_connected"]  = (WiFi.status() == WL_CONNECTED);
+  doc["mqtt_connected"]  = mqtt.connected();
+  doc["rssidbm"]         = WiFi.RSSI();
+  doc["freeheap"]        = ESP.getFreeHeap();
+  doc["sensorcount"]     = sensorCount;
+  doc["simulated"]       = useFakeSensors;
+  doc["networkdetected"] = sensorNetworkDetected;
+  doc["prometheusport"]  = config.prometheusPort;
+  doc["uptime_ms"]       = millis() - bootMillis;
+  doc["last_status"]     = lastStatusMsg;
+  doc["last_rx_type"]    = lastRxType;
   appendWaterToJson(doc);
   sendJsonDoc(doc);
 }
 
 void handleApiTemps() {
   StaticJsonDocument<1536> doc;
-  doc["sensorcount"]       = sensorCount;
-  doc["simulated"]         = useFakeSensors;
-  doc["networkdetected"]   = sensorNetworkDetected;
-  doc["last_sample_ms_age"]= lastSensorSampleMs > 0 ? (millis() - lastSensorSampleMs) : 0;
-  doc["last_rescan_ms_age"]= lastSensorRescanMs > 0 ? (millis() - lastSensorRescanMs) : 0;
+  doc["sensorcount"]        = sensorCount;
+  doc["simulated"]          = useFakeSensors;
+  doc["networkdetected"]    = sensorNetworkDetected;
+  doc["last_sample_ms_age"] = lastSensorSampleMs > 0 ? (millis() - lastSensorSampleMs) : 0;
+  doc["last_rescan_ms_age"] = lastSensorRescanMs > 0 ? (millis() - lastSensorRescanMs) : 0;
 
   JsonArray sensors = doc.createNestedArray("sensors");
   for (uint8_t i = 0; i < sensorCount; i++) {
     JsonObject s = sensors.createNestedObject();
-    s["index"]    = i + 1;
-    s["name"]     = sensorNames[i];
-    s["address"]  = sensorAddressString(i);
-    s["connected"]= sensorPresent[i];
+    s["index"]     = i + 1;
+    s["name"]      = sensorNames[i];
+    s["address"]   = sensorAddressString(i);
+    s["connected"] = sensorPresent[i];
     if (isnan(sensorTempsC[i])) s["tempc"] = nullptr;
     else s["tempc"] = sensorTempsC[i];
   }
@@ -118,12 +118,12 @@ void handleApiWater() {
 
 void handleApiConfig() {
   StaticJsonDocument<1024> doc;
-  doc["mqtthost"]      = config.mqttHost;
-  doc["mqttport"]      = config.mqttPort;
-  doc["basetopic"]     = config.baseTopic;
-  doc["deviceid"]      = safeDeviceId();
-  doc["prometheusport"]= config.prometheusPort;
-  doc["led_enabled"]   = config.ledEnabled;
+  doc["mqtthost"]       = config.mqttHost;
+  doc["mqttport"]       = config.mqttPort;
+  doc["basetopic"]      = config.baseTopic;
+  doc["deviceid"]       = safeDeviceId();
+  doc["prometheusport"] = config.prometheusPort;
+  doc["led_enabled"]    = config.ledEnabled;
 
   JsonObject water = doc.createNestedObject("water");
   water["intervalms"] = config.waterHeartbeatIntervalMs;
@@ -137,6 +137,39 @@ void handleApiConfig() {
   topics["water"]   = waterTopic;
 
   sendJsonDoc(doc);
+}
+
+// GET /api/fs/list  -- returns [{name, size}] for every file in LittleFS
+void handleApiFsList() {
+  DynamicJsonDocument doc(2048);
+  JsonArray files = doc.createNestedArray("files");
+
+  FSInfo info;
+  LittleFS.info(info);
+  doc["total_bytes"] = info.totalBytes;
+  doc["used_bytes"]  = info.usedBytes;
+
+  Dir dir = LittleFS.openDir("/");
+  while (dir.next()) {
+    JsonObject f = files.createNestedObject();
+    f["name"] = dir.fileName();
+    f["size"] = dir.fileSize();
+  }
+  sendJsonDoc(doc);
+}
+
+// GET /api/fs/file?path=/foo.txt  -- streams raw file as plain text
+void handleApiFsFile() {
+  if (!webServer.hasArg("path")) { sendError("missing path"); return; }
+  String path = webServer.arg("path");
+  // Ensure leading slash
+  if (!path.startsWith("/")) path = "/" + path;
+  if (!LittleFS.exists(path)) { sendError("file not found", 404); return; }
+  File f = LittleFS.open(path, "r");
+  if (!f) { sendError("open failed", 500); return; }
+  webServer.streamFile(f, "text/plain; charset=utf-8");
+  f.close();
+  yield();
 }
 
 void handleApiScanSensors() {
@@ -153,11 +186,11 @@ void handleApiSampleWater() {
 
 void handlePostServicesConfig() {
   bool changed = false;
-  if (webServer.hasArg("mqtthost"))      changed |= setMqttHostValue(webServer.arg("mqtthost").c_str());
-  if (webServer.hasArg("mqttport"))      changed |= setMqttPortValue((uint16_t)webServer.arg("mqttport").toInt());
-  if (webServer.hasArg("basetopic"))     changed |= setBaseTopicValue(webServer.arg("basetopic").c_str());
-  if (webServer.hasArg("deviceid"))      changed |= setDeviceIdValue(webServer.arg("deviceid").c_str());
-  if (webServer.hasArg("prometheusport"))changed |= setPrometheusPortValue((uint16_t)webServer.arg("prometheusport").toInt());
+  if (webServer.hasArg("mqtthost"))       changed |= setMqttHostValue(webServer.arg("mqtthost").c_str());
+  if (webServer.hasArg("mqttport"))       changed |= setMqttPortValue((uint16_t)webServer.arg("mqttport").toInt());
+  if (webServer.hasArg("basetopic"))      changed |= setBaseTopicValue(webServer.arg("basetopic").c_str());
+  if (webServer.hasArg("deviceid"))       changed |= setDeviceIdValue(webServer.arg("deviceid").c_str());
+  if (webServer.hasArg("prometheusport")) changed |= setPrometheusPortValue((uint16_t)webServer.arg("prometheusport").toInt());
   saveConfig();
   setStatusMessage(changed ? "services saved" : "services unchanged", 1500);
   sendOk("services saved");
@@ -176,7 +209,6 @@ void handlePostWaterConfig() {
     vals[i] = (uint16_t)webServer.arg(keys[i]).toInt();
   }
   if (haveAll) ok &= setWaterThresholdsArray(vals, waterthresholdcount);
-
   if (!ok) { sendError("invalid water config"); return; }
   saveConfig();
   setStatusMessage("water cfg saved", 1500);
@@ -196,9 +228,7 @@ void handlePostSensorRename() {
 }
 
 void handlePostDisplayConfig() {
-  if (!webServer.hasArg("led_enabled")) {
-    sendError("missing led_enabled"); return;
-  }
+  if (!webServer.hasArg("led_enabled")) { sendError("missing led_enabled"); return; }
   String val = webServer.arg("led_enabled");
   bool enabled = (val == "1" || val.equalsIgnoreCase("true"));
   setLedEnabled(enabled);
@@ -208,17 +238,19 @@ void handlePostDisplayConfig() {
 }
 
 void startMainWebUi() {
-  webServer.on("/",             HTTP_GET,  handleHomePage);
-  webServer.on("/index.html",   HTTP_GET,  handleHomePage);
-  webServer.on("/settings",     HTTP_GET,  handleSettingsPage);
-  webServer.on("/settings.html",HTTP_GET,  handleSettingsPage);
-  webServer.on("/app.js",       HTTP_GET,  handleAppJs);
-  webServer.on("/style.css",    HTTP_GET,  handleStyleCss);
+  webServer.on("/",              HTTP_GET, handleHomePage);
+  webServer.on("/index.html",    HTTP_GET, handleHomePage);
+  webServer.on("/settings",      HTTP_GET, handleSettingsPage);
+  webServer.on("/settings.html", HTTP_GET, handleSettingsPage);
+  webServer.on("/app.js",        HTTP_GET, handleAppJs);
+  webServer.on("/style.css",     HTTP_GET, handleStyleCss);
 
   webServer.on("/api/status",          HTTP_GET,  handleApiStatus);
   webServer.on("/api/temps",           HTTP_GET,  handleApiTemps);
   webServer.on("/api/water",           HTTP_GET,  handleApiWater);
   webServer.on("/api/config",          HTTP_GET,  handleApiConfig);
+  webServer.on("/api/fs/list",         HTTP_GET,  handleApiFsList);
+  webServer.on("/api/fs/file",         HTTP_GET,  handleApiFsFile);
 
   webServer.on("/api/sensors/scan",    HTTP_POST, handleApiScanSensors);
   webServer.on("/api/water/sample",    HTTP_POST, handleApiSampleWater);

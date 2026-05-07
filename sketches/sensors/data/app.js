@@ -53,8 +53,67 @@ function renderServices(){
   document.getElementById('page-services').innerHTML=`<div class='grid two'><div class='card'><h3>MQTT & Prometheus</h3><form class='form' onsubmit='saveServices(event)'><div class='field'><label>MQTT host</label><input name='mqtthost' value='${esc(c.mqtthost||'')}'></div><div class='grid two'><div class='field'><label>MQTT port</label><input name='mqttport' type='number' min='1' max='65535' value='${c.mqttport ?? 1883}'></div><div class='field'><label>Prometheus port</label><input name='prometheusport' type='number' min='1' max='65535' value='${c.prometheusport ?? 9111}'></div></div><div class='field'><label>Base topic</label><input name='basetopic' value='${esc(c.basetopic||'')}'></div><div class='field'><label>Device ID</label><input name='deviceid' value='${esc(c.deviceid||'')}'></div><div class='actions'><button class='btn btn-action' type='submit'>Save Services</button></div></form></div><div class='card'><h3>Resolved Topics</h3><p><b>Command:</b><br><span class='mono small'>${esc((c.topics||{}).command||'-')}</span></p><p><b>Status:</b><br><span class='mono small'>${esc((c.topics||{}).status||'-')}</span></p><p><b>Results:</b><br><span class='mono small'>${esc((c.topics||{}).results||'-')}</span></p><p><b>Water:</b><br><span class='mono small'>${esc((c.topics||{}).water||'-')}</span></p><p><b>Metrics URL:</b><br><span class='mono small'>http://${esc((state.status||{}).ip||'0.0.0.0')}:${c.prometheusport ?? 9111}/metrics</span></p></div></div>`;
 }
 
+function renderFiles(){
+  const el=document.getElementById('page-files');
+  el.innerHTML=`<div class='card' style='grid-column:1/-1'><h3>LittleFS Contents</h3><div id='fs-body'><span class='muted'>Loading...</span></div></div>`;
+  fetch('/api/fs/list',{cache:'no-store'})
+    .then(r=>r.json())
+    .then(d=>{
+      const files=d.files||[];
+      const used=d.used_bytes||0;
+      const total=d.total_bytes||0;
+      const pct=total?Math.round(used/total*100):0;
+      const rows=files.length
+        ? files.map(f=>`<tr><td class='mono'>${esc(f.name)}</td><td style='text-align:right'>${f.size}</td><td><button class='btn secondary' onclick="viewFile('${esc(f.name)}')">View</button></td></tr>`).join('')
+        : `<tr><td colspan='3' class='muted'>No files found.</td></tr>`;
+      document.getElementById('fs-body').innerHTML=
+        `<p style='margin-bottom:.75rem'><b>Used:</b> ${used} / ${total} bytes (${pct}%)</p>`+
+        `<table class='table'><thead><tr><th>File</th><th style='text-align:right'>Bytes</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+    })
+    .catch(()=>{document.getElementById('fs-body').innerHTML=`<span class='muted'>Failed to load file list.</span>`;});
+}
+
+function viewFile(name){
+  const path=name.startsWith('/')?name:'/'+name;
+  document.getElementById('modal-filename').textContent=path;
+  document.getElementById('modal-content').textContent='Loading...';
+  document.getElementById('file-modal').style.display='block';
+  fetch('/api/fs/file?path='+encodeURIComponent(path),{cache:'no-store'})
+    .then(r=>r.text())
+    .then(t=>{document.getElementById('modal-content').textContent=t;})
+    .catch(()=>{document.getElementById('modal-content').textContent='Error loading file.';});
+}
+
+function closeFileModal(){
+  document.getElementById('file-modal').style.display='none';
+  document.getElementById('modal-content').textContent='';
+}
+
+// close modal on backdrop click
+document.getElementById('file-modal').addEventListener('click',function(e){if(e.target===this)closeFileModal();});
+// close modal on Escape
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeFileModal();});
+
 function renderPages(){renderDashboard();renderTemps();renderWater();renderNames();renderWifi();renderServices();showPage(state.page);}
-function showPage(name){state.page=name;document.querySelectorAll('.page').forEach(p=>p.classList.add('hidden'));const page=document.getElementById('page-'+name);if(page)page.classList.remove('hidden');document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===name));const titles={dashboard:['Dashboard','Live node overview'],temps:['Temperature Network','Monitor and rescan the 1-Wire sensor bus'],water:['Water Probe','Live level status and threshold configuration'],names:['Sensor Names','Persistent address-based sensor naming'],wifi:['WiFi','Current connection state'],services:['MQTT & Prometheus','Broker, topics, identity, and metrics']};document.getElementById('page-title').textContent=titles[name][0];document.getElementById('page-subtitle').textContent=titles[name][1];}
+function showPage(name){
+  state.page=name;
+  document.querySelectorAll('.page').forEach(p=>p.classList.add('hidden'));
+  const page=document.getElementById('page-'+name);
+  if(page)page.classList.remove('hidden');
+  document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===name));
+  const titles={
+    dashboard:['Dashboard','Live node overview'],
+    temps:['Temperature Network','Monitor and rescan the 1-Wire sensor bus'],
+    water:['Water Probe','Live level status and threshold configuration'],
+    names:['Sensor Names','Persistent address-based sensor naming'],
+    wifi:['WiFi','Current connection state'],
+    services:['MQTT & Prometheus','Broker, topics, identity, and metrics'],
+    files:['LittleFS Files','Browse and inspect files stored on the device filesystem']
+  };
+  document.getElementById('page-title').textContent=(titles[name]||['',''])[0];
+  document.getElementById('page-subtitle').textContent=(titles[name]||['',''])[1];
+  if(name==='files')renderFiles();
+}
 async function saveServices(ev){ev.preventDefault();const fd=new FormData(ev.target);await postAction('/api/config/services',Object.fromEntries(fd.entries()));}
 async function saveWater(ev){ev.preventDefault();const fd=new FormData(ev.target);await postAction('/api/config/water',Object.fromEntries(fd.entries()));}
 async function renameSensor(ev,index){ev.preventDefault();const fd=new FormData(ev.target);await postAction('/api/sensors/rename',{index,name:fd.get('name')});}
