@@ -7,14 +7,28 @@
 #include "mqtt_publish.h"
 #include "pins_and_constants.h"
 
+// Two-phase async sensor read state
+static bool waitingToCollect = false;
+
 void runScheduledTasks() {
   unsigned long now = millis();
 
+  // Phase 2: collect temperature results 800ms after conversion was requested
+  if (waitingToCollect && conversionPending &&
+      now - conversionRequestedMs >= 800) {
+    collectTemperatureResults();
+    publishPerSensorStatuses(false);
+    waitingToCollect = false;
+  }
+
+  // Sensor heartbeat: scan + fire async conversion
   if (now - lastSensorHeartbeatMs >= sensorheartbeatintervalms) {
     Serial.println("sample sensors");
-    sampleSensors();
-    publishPerSensorStatuses(false);
+    scanSensors();
+    requestTemperatureConversion();
+    waitingToCollect = true;
     lastSensorHeartbeatMs = now;
+    // publish happens in the collect phase above, 800ms later
   }
 
   if (now - lastWaterHeartbeatMs >= config.waterHeartbeatIntervalMs) {

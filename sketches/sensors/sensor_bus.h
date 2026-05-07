@@ -1,11 +1,13 @@
 #pragma once
 #include <Arduino.h>
-#include <DallasTemperature.h>
 
 void initSensorBus();
 void scanSensors(bool force = false);
-void readTemperatures();
-void sampleSensors();
-void loadFakeSensors();
-void clearFakeSensorEffects();
-String defaultSensorNameForAddress(const DeviceAddress addr);
+void requestTemperatureConversion();  // async: fires conversion, returns immediately
+void collectTemperatureResults();     // async: reads results (call 800ms after request)
+void readTemperatures();              // legacy blocking shim (feeds WDT safely)
+void sampleSensors();                 // scan + async-safe read
+String sensorAddressString(uint8_t i);
+
+extern bool conversionPending;
+extern unsigned long conversionRequestedMs;

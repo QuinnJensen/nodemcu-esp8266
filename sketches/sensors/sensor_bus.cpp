@@ -5,16 +5,17 @@
 #include "sensor_names.h"
 #include "display_ui.h"
 
-static const char* fakeSensorNames[3] = {"sensor1", "sensor2", "sensor3"};
+static const char* fakeSensorNames[3]     = {"sensor1", "sensor2", "sensor3"};
 static const char* fakeSensorAddresses[3] = {"28DEAD2BAD0001A1", "28DEAD2BAD0002B2", "28DEAD2BAD0003C3"};
-static float fakeSensorTempsC[3] = {21.1f, 22.8f, 24.4f};
+static float       fakeSensorTempsC[3]    = {21.1f, 22.8f, 24.4f};
+
+bool conversionPending = false;
+unsigned long conversionRequestedMs = 0;
 
 void initSensorBus() {
+  ds.setWaitForConversion(false); // always async from here on
   ds.begin();
 }
-
-// move your current clearFakeSensorEffects(), loadFakeSensors(),
-// scanSensors(), readTemperatures(), sampleSensors() here with minimal edits
 
 String defaultSensorNameForAddress(const DeviceAddress addr) {
   uint16_t low12 = ((uint16_t)(addr[6] & 0x0F) << 8) | addr[7];
@@ -54,6 +55,7 @@ void loadFakeSensors() {
 void scanSensors(bool force) {
   if (!force && lastSensorRescanMs > 0 && millis() - lastSensorRescanMs < sensorrescanintervalms) return;
   lastSensorRescanMs = millis();
+
   DeviceAddress discovered[maxsensors];
   bool duplicateFound = false;
   uint8_t found = 0;
@@ -61,18 +63,13 @@ void scanSensors(bool force) {
   oneWire.reset_search();
   DeviceAddress addr;
   while (found < maxsensors && oneWire.search(addr)) {
+    yield(); // feed WDT during bus search
     if (!ds.validAddress(addr)) continue;
-
     bool seen = false;
     for (uint8_t i = 0; i < found; i++) {
-      if (memcmp(discovered[i], addr, sizeof(DeviceAddress)) == 0) {
-        seen = true;
-        duplicateFound = true;
-        break;
-      }
+      if (memcmp(discovered[i], addr, sizeof(DeviceAddress)) == 0) { seen = true; duplicateFound = true; break; }
     }
     if (seen) continue;
-
     memcpy(discovered[found], addr, sizeof(DeviceAddress));
     found++;
   }
@@ -106,11 +103,44 @@ void scanSensors(bool force) {
   }
 }
 
+// Phase 1: fire conversion and return immediately (non-blocking)
+void requestTemperatureConversion() {
+  if (useFakeSensors || sensorCount == 0) return;
+  ds.requestTemperatures(); // returns immediately because setWaitForConversion(false)
+  conversionPending = true;
+  conversionRequestedMs = millis();
+}
+
+// Phase 2: collect results -- only call 800ms after requestTemperatureConversion()
+void collectTemperatureResults() {
+  if (useFakeSensors || !conversionPending) return;
+  conversionPending = false;
+  for (uint8_t i = 0; i < sensorCount; i++) {
+    yield();
+    flashBlueLed(5); // short flash per sensor, yield() fed before each
+    float t = ds.getTempC(sensorAddresses[i]);
+    if (t == DEVICE_DISCONNECTED_C) {
+      sensorTempsC[i] = NAN;
+      sensorPresent[i] = false;
+    } else {
+      sensorTempsC[i] = t;
+      sensorPresent[i] = true;
+    }
+  }
+  lastSensorSampleMs = millis();
+}
+
+// Blocking shim retained for setup() initial read -- feeds WDT safely
 void readTemperatures() {
   if (useFakeSensors) return;
+  ds.setWaitForConversion(false);
   ds.requestTemperatures();
+  // Wait 800ms feeding the WDT every 10ms
+  unsigned long start = millis();
+  while (millis() - start < 800) { yield(); }
   for (uint8_t i = 0; i < sensorCount; i++) {
-    flashBlueLed(20);
+    yield();
+    flashBlueLed(5);
     float t = ds.getTempC(sensorAddresses[i]);
     if (t == DEVICE_DISCONNECTED_C) {
       sensorTempsC[i] = NAN;
@@ -124,8 +154,8 @@ void readTemperatures() {
 
 void sampleSensors() {
   scanSensors();
-  readTemperatures();
-  lastSensorSampleMs = millis();
+  // Fire async conversion; scheduler will collect results after 800ms
+  requestTemperatureConversion();
 }
 
 String sensorAddressString(uint8_t i) {
