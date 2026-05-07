@@ -18,6 +18,7 @@
 #include "display_ui.h"
 #include "scheduler.h"
 #include "mqtt_commands.h"
+#include "console_log.h"
 
 // Called by lib/shared/mqtt_client immediately after successful broker connect+subscribe
 static void onMqttConnected() {
@@ -36,6 +37,18 @@ static void onMqttMessage(const String& topic, const String& payload) {
   lastRxRaw = payload;
   if (topic == commandTopic) handleCommandJson(payload);
   else lastRxType = "other";
+}
+
+// Logged for every publish attempt: full topic + full JSON payload.
+// Truncation is bounded by the console ring-buffer entry size only.
+static void onMqttPublish(const char* topic, const char* payload, size_t len, bool ok) {
+  String line;
+  line.reserve(20 + (topic ? strlen(topic) : 0) + len);
+  line += ok ? "PUB " : "PUB-FAIL ";
+  if (topic) line += topic;
+  line += ' ';
+  if (payload && len) line.concat(payload, len);
+  consoleLog(ok ? CLOG_TX : CLOG_WARN, line);
 }
 
 void setup() {
@@ -64,6 +77,7 @@ void setup() {
   // Route incoming MQTT messages and connect event to sketch handlers
   setMqttMessageHandler(onMqttMessage);
   setMqttConnectedHandler(onMqttConnected);
+  setMqttPublishLogger(onMqttPublish);
 
   if (!LittleFS.begin()) setStatusMessage("LittleFS fail", 3000);
 

@@ -6,6 +6,9 @@
 #include "app_config.h"
 #include "util.h"
 
+static MqttPublishLogger sPublishLogger = nullptr;
+void setMqttPublishLogger(MqttPublishLogger fn) { sPublishLogger = fn; }
+
 // ── reconnect state machine ───────────────────────────────────────────────────
 enum class MqttReconnectState : uint8_t {
   IDLE,        // waiting for retry window
@@ -77,11 +80,13 @@ bool publishJsonDocToTopic(const char* topic, const JsonDocument& doc, bool reta
   size_t n = 0;
   if (!serializeDocToBuffer(doc, buffer, sizeof(buffer), n)) {
     Serial.print("[MQTT] publish skipped: "); Serial.println(topic);
+    if (sPublishLogger) sPublishLogger(topic, "<serialize failed>", 18, false);
     return false;
   }
   bool ok = mqtt.publish(topic, reinterpret_cast<const uint8_t*>(buffer), n, retained);
   if (ok) { mqttPublishCount++; _kickSpinner(); }
   else { Serial.print("[MQTT] publish failed: "); Serial.println(topic); }
+  if (sPublishLogger) sPublishLogger(topic, buffer, n, ok);
   return ok;
 }
 

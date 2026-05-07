@@ -25,7 +25,7 @@
 #define portaltimeoutsec 180
 #define startupreconfigcountdownms 10000UL
 #define mqttbuffersize 2048
-#define devicetz "MST7MDT,M3.2.0,M11.1.0"
+#define devicetz "MDT7MST,M3.2.0,M11.1.0"
 
 #define maxsensors 6
 #define sensornamelen 32

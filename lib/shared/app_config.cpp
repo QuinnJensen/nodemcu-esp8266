@@ -1,6 +1,7 @@
 // app_config.cpp
 #include "app_config.h"
 #include <LittleFS.h>
+#include <time.h>
 #include "util.h"
 
 AppConfig config;
@@ -79,11 +80,20 @@ bool setPrometheusPortValue(uint16_t port) {
   return true;
 }
 
+bool setTimezoneValue(const char* tz) {
+  if (!tz || !tz[0]) return false;
+  strlcpy(config.timezone, tz, sizeof(config.timezone));
+  setenv("TZ", config.timezone, 1);
+  tzset();
+  return true;
+}
+
 bool loadConfig() {
   // Defaults
   strlcpy(config.mqttHost,  "192.168.1.50", sizeof(config.mqttHost));
   strlcpy(config.baseTopic, "stat/w1",      sizeof(config.baseTopic));
   strlcpy(config.deviceId,  "newKid",       sizeof(config.deviceId));
+  strlcpy(config.timezone,  devicetz,       sizeof(config.timezone));
   config.mqttPort = 1883;
   config.prometheusPort = 9111;
   config.waterHeartbeatIntervalMs = defaultwaterheartbeatintervalms;
@@ -103,6 +113,7 @@ bool loadConfig() {
   strlcpy(config.mqttHost,  doc["mqtthost"]  | "192.168.1.50", sizeof(config.mqttHost));
   strlcpy(config.baseTopic, doc["basetopic"] | "stat/w1",      sizeof(config.baseTopic));
   strlcpy(config.deviceId,  doc["deviceid"]  | "newKid",       sizeof(config.deviceId));
+  strlcpy(config.timezone,  doc["timezone"]  | devicetz,       sizeof(config.timezone));
   config.mqttPort           = doc["mqttport"]           | 1883;
   config.prometheusPort     = doc["prometheusport"]     | 9111;
   config.waterHeartbeatIntervalMs = doc["waterheartbeatintervalms"] | defaultwaterheartbeatintervalms;
@@ -126,6 +137,7 @@ bool saveConfig() {
   doc["mqttport"]               = config.mqttPort;
   doc["basetopic"]              = config.baseTopic;
   doc["deviceid"]               = safeDeviceId();
+  doc["timezone"]               = config.timezone;
   doc["prometheusport"]         = config.prometheusPort;
   doc["waterheartbeatintervalms"] = config.waterHeartbeatIntervalMs;
   doc["ledenabled"]             = config.ledEnabled;

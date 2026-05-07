@@ -7,6 +7,7 @@ struct AppConfig {
   char mqttHost[64]  = "192.168.1.50";
   char baseTopic[64] = "mountain/mcu";
   char deviceId[32]  = "newKid";
+  char timezone[40]  = devicetz;   // POSIX TZ string used for local-time conversion
   uint16_t mqttPort          = 1883;
   uint16_t prometheusPort    = 9111;
   uint32_t waterHeartbeatIntervalMs = defaultwaterheartbeatintervalms;
@@ -32,3 +33,4 @@ bool setDeviceIdValue(const char* id);
 bool setMqttPortValue(uint16_t port);
 bool setPrometheusPortValue(uint16_t port);
 bool setLedEnabled(bool enabled);
+bool setTimezoneValue(const char* tz);

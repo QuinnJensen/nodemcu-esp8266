@@ -16,6 +16,12 @@ void setMqttMessageHandler(MqttMessageHandler handler);
 void setMqttConnectedHandler(MqttConnectedHandler handler);
 
 bool publishJsonDocToTopic(const char* topic, const JsonDocument& doc, bool retained);
+
+// Optional callback fired after every publish attempt with full topic + payload.
+// Set to nullptr to disable. Implementation must be ISR-safe / non-blocking.
+typedef void (*MqttPublishLogger)(const char* topic, const char* payload, size_t len, bool ok);
+void setMqttPublishLogger(MqttPublishLogger fn);
+
 void initMqttClient();
 void startMqttIfWifiReady();
 void serviceMqttClient();
