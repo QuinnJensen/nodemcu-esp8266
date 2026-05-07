@@ -1,10 +1,10 @@
-// mqtt_publish.h -- sensor/water domain publish functions (sketch-local)
+// mqtt_publish.h
 #pragma once
-#include <Arduino.h>
+#include <stdint.h>
 
-void publishAggregateStatus(bool retained = false);
-void publishPerSensorStatus(uint8_t i, bool retained = false);
-void publishPerSensorStatuses(bool retained = false);
-void publishWaterStatus(bool retained = false);
-void publishCommandResult(const char* type, bool ok, const char* msg = nullptr);
+void publishAggregateStatus();
+void publishPerSensorStatus(uint8_t i);
+void publishPerSensorStatuses();
+void publishWaterStatus();
+void publishCommandResult(const char* type, bool ok, const char* msg);
 void initialSampleAndPublish();

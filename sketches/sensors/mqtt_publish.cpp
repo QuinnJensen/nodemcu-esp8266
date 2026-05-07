@@ -11,7 +11,7 @@
 #include "mqtt_client.h"
 #include "display_ui.h"
 
-void publishAggregateStatus(bool retained) {
+void publishAggregateStatus() {
   Serial.print("heartbeat: mqtt connected=");
   Serial.println(mqtt.connected());
   if (!mqtt.connected()) return;
@@ -63,11 +63,11 @@ void publishAggregateStatus(bool retained) {
   Serial.print("[MQTT] aggregate doc size=");
   Serial.println(measureJson(doc));
 
-  if (publishJsonDocToTopic(statusTopic, doc, retained))
+  if (publishJsonDocToTopic(statusTopic, doc, false))
     setStatusMessage("publishing agg", 1500);
 }
 
-void publishPerSensorStatus(uint8_t i, bool retained) {
+void publishPerSensorStatus(uint8_t i) {
   if (!mqtt.connected() || i >= sensorCount) return;
 
   static StaticJsonDocument<512> doc;
@@ -94,18 +94,18 @@ void publishPerSensorStatus(uint8_t i, bool retained) {
                  sanitizeTopicPart(safeDeviceId()) + "/sensor/" +
                  sanitizeTopicPart(sensorNames[i]);
 
-  if (!publishJsonDocToTopic(topic.c_str(), doc, retained)) {
+  if (!publishJsonDocToTopic(topic.c_str(), doc, false)) {
     Serial.print("[MQTT] per-sensor publish failed index=");
     Serial.println(i + 1);
   }
 }
 
-void publishPerSensorStatuses(bool retained) {
+void publishPerSensorStatuses() {
   for (uint8_t i = 0; i < sensorCount; i++)
-    publishPerSensorStatus(i, retained);
+    publishPerSensorStatus(i);
 }
 
-void publishWaterStatus(bool retained) {
+void publishWaterStatus() {
   if (!mqtt.connected()) return;
 
   static StaticJsonDocument<512> doc;
@@ -120,7 +120,7 @@ void publishWaterStatus(bool retained) {
 
   appendWaterToJson(doc);
 
-  if (!publishJsonDocToTopic(waterTopic, doc, retained))
+  if (!publishJsonDocToTopic(waterTopic, doc, false))
     Serial.println("[MQTT] water publish failed");
 }
 
@@ -143,8 +143,8 @@ void initialSampleAndPublish() {
   scanSensors(true);
   readTemperatures();
   sampleWaterLevel();
-  publishAggregateStatus(true);
-  publishPerSensorStatuses(true);
-  publishWaterStatus(true);
+  publishAggregateStatus();
+  publishPerSensorStatuses();
+  publishWaterStatus();
   mqttOnlinePublished = true;
 }
