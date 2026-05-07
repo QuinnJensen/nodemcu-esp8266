@@ -82,7 +82,7 @@ bool setPrometheusPortValue(uint16_t port) {
 bool loadConfig() {
   // Defaults
   strlcpy(config.mqttHost,  "192.168.1.50", sizeof(config.mqttHost));
-  strlcpy(config.baseTopic, "mountain/mcu", sizeof(config.baseTopic));
+  strlcpy(config.baseTopic, "stat/w1",      sizeof(config.baseTopic));
   strlcpy(config.deviceId,  "newKid",       sizeof(config.deviceId));
   config.mqttPort = 1883;
   config.prometheusPort = 9111;
@@ -101,7 +101,7 @@ bool loadConfig() {
   if (err) { buildTopics(); return false; }
 
   strlcpy(config.mqttHost,  doc["mqtthost"]  | "192.168.1.50", sizeof(config.mqttHost));
-  strlcpy(config.baseTopic, doc["basetopic"] | "mountain/mcu", sizeof(config.baseTopic));
+  strlcpy(config.baseTopic, doc["basetopic"] | "stat/w1",      sizeof(config.baseTopic));
   strlcpy(config.deviceId,  doc["deviceid"]  | "newKid",       sizeof(config.deviceId));
   config.mqttPort           = doc["mqttport"]           | 1883;
   config.prometheusPort     = doc["prometheusport"]     | 9111;
