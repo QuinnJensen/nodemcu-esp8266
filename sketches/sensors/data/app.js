@@ -1,4 +1,4 @@
-const state={status:null,temps:null,water:null,config:null,busy:false,page:'dashboard'};
+const state={status:null,temps:null,water:null,config:null,busy:false,page:'dashboard',pollTimer:null,modalOpen:false,filesLoaded:false};
 
 function esc(s){return String(s??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');}
 function fmtBool(v){return v?'Yes':'No';}
@@ -6,9 +6,46 @@ function tempF(c){return (Number(c)*9/5+32).toFixed(1);}
 function ageSec(ms){if(!ms)return '0s'; return Math.floor(ms/1000)+'s';}
 function setBusy(v){state.busy=v;document.querySelectorAll('.btn-action').forEach(b=>b.disabled=v);}
 function postForm(url,obj){const fd=new URLSearchParams();Object.entries(obj).forEach(([k,v])=>fd.append(k,v));return fetch(url,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:fd.toString()});}
-async function postAction(url,obj={}){setBusy(true);try{await postForm(url,obj);await refreshAll();}finally{setBusy(false);}}
+
 async function fetchJson(url){const r=await fetch(url,{cache:'no-store'});if(!r.ok)throw new Error(url);return r.json();}
-async function refreshAll(){const [status,temps,water,config]=await Promise.all([fetchJson('/api/status'),fetchJson('/api/temps'),fetchJson('/api/water'),fetchJson('/api/config')]);state.status=status;state.temps=temps;state.water=water;state.config=config;renderChrome();renderPages();}
+
+// Fetch the three live endpoints sequentially -- one TCP connection at a time.
+// config is excluded; it is loaded once on startup and only re-fetched after
+// a user action that might change it (saveServices, saveWater, etc.).
+async function fetchLiveData(){
+  state.status = await fetchJson('/api/status');
+  state.temps  = await fetchJson('/api/temps');
+  state.water  = await fetchJson('/api/water');
+}
+
+async function fetchConfig(){
+  state.config = await fetchJson('/api/config');
+}
+
+// Full refresh: live data + re-render. Used by action buttons.
+async function refreshAll(){
+  stopPoll();
+  try{
+    await fetchLiveData();
+    renderChrome();
+    renderPages();
+  }catch(e){console.warn('refreshAll error',e);}
+  schedulePoll();
+}
+
+// Lightweight background tick: live data only, no config re-fetch.
+async function pollTick(){
+  if(state.busy||state.modalOpen){schedulePoll();return;}
+  try{
+    await fetchLiveData();
+    renderChrome();
+    renderPages();
+  }catch(e){console.warn('poll error',e);}
+  schedulePoll();
+}
+
+function schedulePoll(){state.pollTimer=setTimeout(pollTick,8000);}
+function stopPoll(){if(state.pollTimer){clearTimeout(state.pollTimer);state.pollTimer=null;}}
 
 function renderChrome(){
   const s=state.status||{};
@@ -54,8 +91,12 @@ function renderServices(){
 }
 
 function renderFiles(){
+  // Only load once per visit; subsequent background polls skip this page entirely.
+  if(state.filesLoaded)return;
+  state.filesLoaded=true;
   const el=document.getElementById('page-files');
   el.innerHTML=`<div class='card' style='grid-column:1/-1'><h3>LittleFS Contents</h3><div id='fs-body'><span class='muted'>Loading...</span></div></div>`;
+  stopPoll();
   fetch('/api/fs/list',{cache:'no-store'})
     .then(r=>r.json())
     .then(d=>{
@@ -67,17 +108,22 @@ function renderFiles(){
         ? files.map(f=>`<tr><td class='mono'>${esc(f.name)}</td><td style='text-align:right'>${f.size}</td><td><button class='btn secondary' onclick="viewFile('${esc(f.name)}')">View</button></td></tr>`).join('')
         : `<tr><td colspan='3' class='muted'>No files found.</td></tr>`;
       document.getElementById('fs-body').innerHTML=
-        `<p style='margin-bottom:.75rem'><b>Used:</b> ${used} / ${total} bytes (${pct}%)</p>`+
+        `<p style='margin-bottom:.75rem'><b>Used:</b> ${used} / ${total} bytes (${pct}%)<button class='btn secondary' style='margin-left:1rem' onclick='reloadFiles()'>Reload</button></p>`+
         `<table class='table'><thead><tr><th>File</th><th style='text-align:right'>Bytes</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
     })
-    .catch(()=>{document.getElementById('fs-body').innerHTML=`<span class='muted'>Failed to load file list.</span>`;});
+    .catch(()=>{document.getElementById('fs-body').innerHTML=`<span class='muted'>Failed to load file list.</span>`;state.filesLoaded=false;})
+    .finally(()=>schedulePoll());
 }
+
+function reloadFiles(){state.filesLoaded=false;renderFiles();}
 
 function viewFile(name){
   const path=name.startsWith('/')?name:'/'+name;
   document.getElementById('modal-filename').textContent=path;
   document.getElementById('modal-content').textContent='Loading...';
   document.getElementById('file-modal').style.display='block';
+  state.modalOpen=true;
+  stopPoll();
   fetch('/api/fs/file?path='+encodeURIComponent(path),{cache:'no-store'})
     .then(r=>r.text())
     .then(t=>{document.getElementById('modal-content').textContent=t;})
@@ -87,14 +133,24 @@ function viewFile(name){
 function closeFileModal(){
   document.getElementById('file-modal').style.display='none';
   document.getElementById('modal-content').textContent='';
+  state.modalOpen=false;
+  schedulePoll();
 }
 
-// close modal on backdrop click
 document.getElementById('file-modal').addEventListener('click',function(e){if(e.target===this)closeFileModal();});
-// close modal on Escape
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeFileModal();});
 
-function renderPages(){renderDashboard();renderTemps();renderWater();renderNames();renderWifi();renderServices();showPage(state.page);}
+function renderPages(){
+  renderDashboard();
+  renderTemps();
+  renderWater();
+  renderNames();
+  renderWifi();
+  renderServices();
+  // files page is NOT re-rendered on background polls -- only on explicit nav
+  showPage(state.page);
+}
+
 function showPage(name){
   state.page=name;
   document.querySelectorAll('.page').forEach(p=>p.classList.add('hidden'));
@@ -102,22 +158,77 @@ function showPage(name){
   if(page)page.classList.remove('hidden');
   document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===name));
   const titles={
-    dashboard:['Dashboard','Live node overview'],
-    temps:['Temperature Network','Monitor and rescan the 1-Wire sensor bus'],
-    water:['Water Probe','Live level status and threshold configuration'],
-    names:['Sensor Names','Persistent address-based sensor naming'],
-    wifi:['WiFi','Current connection state'],
-    services:['MQTT & Prometheus','Broker, topics, identity, and metrics'],
-    files:['LittleFS Files','Browse and inspect files stored on the device filesystem']
+    dashboard: ['Dashboard','Live node overview'],
+    temps:     ['Temperature Network','Monitor and rescan the 1-Wire sensor bus'],
+    water:     ['Water Probe','Live level status and threshold configuration'],
+    names:     ['Sensor Names','Persistent address-based sensor naming'],
+    wifi:      ['WiFi','Current connection state'],
+    services:  ['MQTT & Prometheus','Broker, topics, identity, and metrics'],
+    files:     ['LittleFS Files','Browse and inspect files stored on the device filesystem']
   };
   document.getElementById('page-title').textContent=(titles[name]||['',''])[0];
   document.getElementById('page-subtitle').textContent=(titles[name]||['',''])[1];
-  if(name==='files')renderFiles();
+  if(name==='files'){state.filesLoaded=false;renderFiles();}
 }
-async function saveServices(ev){ev.preventDefault();const fd=new FormData(ev.target);await postAction('/api/config/services',Object.fromEntries(fd.entries()));}
-async function saveWater(ev){ev.preventDefault();const fd=new FormData(ev.target);await postAction('/api/config/water',Object.fromEntries(fd.entries()));}
-async function renameSensor(ev,index){ev.preventDefault();const fd=new FormData(ev.target);await postAction('/api/sensors/rename',{index,name:fd.get('name')});}
+
+async function postAction(url,obj={}){
+  setBusy(true);
+  stopPoll();
+  try{
+    await postForm(url,obj);
+    // After a mutating action re-fetch config too in case it changed
+    await fetchLiveData();
+    state.config=await fetchJson('/api/config');
+    renderChrome();
+    renderPages();
+  }catch(e){console.warn('postAction error',e);}
+  finally{setBusy(false);schedulePoll();}
+}
+
+async function saveServices(ev){
+  ev.preventDefault();
+  const fd=new FormData(ev.target);
+  setBusy(true);stopPoll();
+  try{
+    await postForm('/api/config/services',Object.fromEntries(fd.entries()));
+    await fetchLiveData();
+    state.config=await fetchJson('/api/config');
+    renderChrome();renderPages();
+  }catch(e){console.warn(e);}finally{setBusy(false);schedulePoll();}
+}
+
+async function saveWater(ev){
+  ev.preventDefault();
+  const fd=new FormData(ev.target);
+  setBusy(true);stopPoll();
+  try{
+    await postForm('/api/config/water',Object.fromEntries(fd.entries()));
+    await fetchLiveData();
+    state.config=await fetchJson('/api/config');
+    renderChrome();renderPages();
+  }catch(e){console.warn(e);}finally{setBusy(false);schedulePoll();}
+}
+
+async function renameSensor(ev,index){
+  ev.preventDefault();
+  const fd=new FormData(ev.target);
+  setBusy(true);stopPoll();
+  try{
+    await postForm('/api/sensors/rename',{index,name:fd.get('name')});
+    await fetchLiveData();
+    renderChrome();renderPages();
+  }catch(e){console.warn(e);}finally{setBusy(false);schedulePoll();}
+}
 
 document.querySelectorAll('.nav button').forEach(b=>b.addEventListener('click',()=>showPage(b.dataset.page)));
-refreshAll();
-setInterval(refreshAll,5000);
+
+// Boot: load config once, then live data, then start polling
+(async()=>{
+  try{
+    state.config=await fetchJson('/api/config');
+    await fetchLiveData();
+    renderChrome();
+    renderPages();
+  }catch(e){console.warn('boot error',e);}
+  schedulePoll();
+})();
