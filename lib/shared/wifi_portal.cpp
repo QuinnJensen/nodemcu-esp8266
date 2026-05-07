@@ -13,7 +13,6 @@ void setWifiPortalDisplayCallbacks(const WifiPortalDisplay& cb) {
   sDisplay = cb;
 }
 
-// Convenience wrappers — no-op if callback not registered
 static void _showPortal() {
   if (sDisplay.showPortal) sDisplay.showPortal();
 }
@@ -82,20 +81,24 @@ bool startupReconfigRequested() {
   unsigned long start = millis();
   uint8_t lastShown = 255;
   while (millis() - start < startupreconfigcountdownms) {
+    // Feed both SW and HW watchdogs — I2C OLED writes can take
+    // long enough to trip the ESP8266 HW watchdog (~3.2s) otherwise
+    yield();
+    ESP.wdtFeed();
     unsigned long elapsed = millis() - start;
     uint8_t secondsLeft = (uint8_t)((startupreconfigcountdownms - elapsed + 999UL) / 1000UL);
     if (secondsLeft != lastShown) {
       _showCountdown(secondsLeft);
+      yield();       // feed WDT again after the blocking OLED write
       lastShown = secondsLeft;
     }
     if (digitalRead(forceportalpin) == LOW) {
       delay(30);
       if (digitalRead(forceportalpin) == LOW) {
-        while (digitalRead(forceportalpin) == LOW) delay(10);
+        while (digitalRead(forceportalpin) == LOW) { yield(); }
         return true;
       }
     }
-    delay(10);
   }
   return false;
 }
@@ -114,7 +117,9 @@ void ensureWiFi() {
   _setStatus("connecting wifi", 2000);
   WiFi.reconnect();
   unsigned long start = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - start < 10000UL) delay(100);
+  while (WiFi.status() != WL_CONNECTED && millis() - start < 10000UL) {
+    yield();
+  }
   if (WiFi.status() == WL_CONNECTED) {
     lastRssi = WiFi.RSSI();
     _setStatus("ip " + ipToString(WiFi.localIP()), 3000);

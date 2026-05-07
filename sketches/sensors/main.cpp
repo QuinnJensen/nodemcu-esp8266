@@ -1,4 +1,3 @@
-// temp_network_v5_web_portal.ino
 #include <Arduino.h>
 #include <LittleFS.h>
 #include <ESP8266WiFi.h>
@@ -22,23 +21,27 @@
 void setup() {
   Serial.begin(115200);
   delay(50);
-
   bootMillis = millis();
 
   initDisplayUi();
   setStatusMessage("booting", 1500);
 
-  // Register display callbacks so wifi_portal can drive the OLED
-  // without depending on display_ui.h directly
-  WifiPortalDisplay dpCb;
-  dpCb.showPortal   = showPortalScreen;
-  dpCb.showCountdown = showStartupReconfigCountdown;
-  dpCb.setStatus    = setStatusMessage;
-  setWifiPortalDisplayCallbacks(dpCb);
+  // Register display callbacks for wifi_portal (shared lib can't include display_ui.h)
+  {
+    WifiPortalDisplay dpCb;
+    dpCb.showPortal    = showPortalScreen;
+    dpCb.showCountdown = showStartupReconfigCountdown;
+    dpCb.setStatus     = setStatusMessage;
+    setWifiPortalDisplayCallbacks(dpCb);
+  }
 
-  showStartupReconfigCountdown(10);
-  startupDisplayActive = true;
-  startupDisplayUntilMs = millis() + 10000UL;
+  // Register display callbacks for mqtt_client (shared lib can't include display_ui.h)
+  {
+    MqttClientDisplay mqCb;
+    mqCb.kickSpinner = kickActivitySpinner;
+    mqCb.setStatus   = setStatusMessage;
+    setMqttClientDisplayCallbacks(mqCb);
+  }
 
   if (!LittleFS.begin()) {
     setStatusMessage("LittleFS fail", 3000);
@@ -52,6 +55,7 @@ void setup() {
   loadSensorNames();
   initMqttClient();
 
+  // Startup reconfig countdown — runs inside wifi_portal with WDT feeds
   runStartupPortalIfNeeded();
 
   startMainWebUi();
@@ -69,5 +73,3 @@ void loop() {
   runScheduledTasks();
   updateDisplayUi();
 }
-
-// $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
