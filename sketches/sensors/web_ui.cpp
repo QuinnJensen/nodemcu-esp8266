@@ -59,16 +59,6 @@ void handleSettingsPage() {
   webServer.send(500, "text/plain", "settings.html missing from LittleFS");
 }
 
-void handleAppJs() {
-  if (streamLittleFsFile("/app.js", "application/javascript; charset=utf-8")) return;
-  webServer.send(404, "text/plain", "app.js not found");
-}
-
-void handleStyleCss() {
-  if (streamLittleFsFile("/style.css", "text/css; charset=utf-8")) return;
-  webServer.send(404, "text/plain", "style.css not found");
-}
-
 void handleApiStatus() {
   StaticJsonDocument<1024> doc;
   doc["id"]              = safeDeviceId();
@@ -242,8 +232,6 @@ void startMainWebUi() {
   webServer.on("/index.html",    HTTP_GET, handleHomePage);
   webServer.on("/settings",      HTTP_GET, handleSettingsPage);
   webServer.on("/settings.html", HTTP_GET, handleSettingsPage);
-  webServer.on("/app.js",        HTTP_GET, handleAppJs);
-  webServer.on("/style.css",     HTTP_GET, handleStyleCss);
 
   webServer.on("/api/status",          HTTP_GET,  handleApiStatus);
   webServer.on("/api/temps",           HTTP_GET,  handleApiTemps);
