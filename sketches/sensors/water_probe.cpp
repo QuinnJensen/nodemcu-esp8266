@@ -13,8 +13,6 @@ void initWaterProbePins() {
   digitalWrite(probeOnPin, LOW);
 }
 
-// move your existing sampleWaterLevel() and appendWaterToJson() here
-
 const char* waterLevelLabel(uint8_t idx) {
   if (idx < waterlevelcount) return waterLevelLabelsLocal[idx];
   return "unknown";
@@ -28,6 +26,8 @@ uint8_t classifyWaterLevel(uint16_t adc) {
 }
 
 void sampleWaterLevel() {
+  waterProbing = true;   // display shows "probing" while this function runs
+
   pinMode(probeOnPin, OUTPUT);
   pinMode(blueLedPin, OUTPUT);
   if (config.ledEnabled) setBlueLed(true);
@@ -37,17 +37,18 @@ void sampleWaterLevel() {
   uint16_t quickAdc = analogRead(A0);
   if (quickAdc <= config.waterThresholds[WATER_NO_PROBE]) {
     waterProbePresent = false;
-    waterValid = true;
-    waterAdcRaw = quickAdc;
-    waterLevelIndex = WATER_NO_PROBE;
+    waterValid        = true;
+    waterAdcRaw       = quickAdc;
+    waterLevelIndex   = WATER_NO_PROBE;
     lastWaterSampleMs = millis();
     digitalWrite(probeOnPin, LOW);
     if (config.ledEnabled) setBlueLed(false);
+    waterProbing = false;  // done -- no probe path
     return;
   }
 
   waterProbePresent = true;
-  uint32_t sum = 0;
+  uint32_t sum          = 0;
   uint32_t totalSamples = 0;
   const uint16_t batchReads = 32;
   unsigned long start = millis();
@@ -64,24 +65,25 @@ void sampleWaterLevel() {
   if (config.ledEnabled) setBlueLed(false);
 
   if (totalSamples == 0) totalSamples = 1;
-  waterAdcRaw = (uint16_t)(sum / totalSamples);
-  waterLevelIndex = classifyWaterLevel(waterAdcRaw);
-  waterValid = true;
+  waterAdcRaw       = (uint16_t)(sum / totalSamples);
+  waterLevelIndex   = classifyWaterLevel(waterAdcRaw);
+  waterValid        = true;
   lastWaterSampleMs = millis();
+  waterProbing      = false;  // done -- results now in waterLevelIndex
 }
 
 void appendWaterToJson(JsonDocument& doc) {
   JsonObject water = doc.createNestedObject("water");
-  water["enabled"] = true;
-  water["heartbeatintervalms"] = config.waterHeartbeatIntervalMs;
-  water["probe_present"] = waterProbePresent;
-  water["adc"] = waterAdcRaw;
-  water["valid"] = waterValid;
-  water["levelindex"] = waterLevelIndex;
-  water["level"] = waterLevelLabel(waterLevelIndex);
+  water["enabled"]              = true;
+  water["heartbeatintervalms"]  = config.waterHeartbeatIntervalMs;
+  water["probe_present"]        = waterProbePresent;
+  water["adc"]                  = waterAdcRaw;
+  water["valid"]                = waterValid;
+  water["levelindex"]           = waterLevelIndex;
+  water["level"]                = waterLevelLabel(waterLevelIndex);
   JsonArray thresholds = water.createNestedArray("thresholds");
   for (uint8_t i = 0; i < waterthresholdcount; i++) thresholds.add(config.waterThresholds[i]);
-  water["noprobeadc"] = config.waterThresholds[WATER_NO_PROBE];
+  water["noprobeadc"]    = config.waterThresholds[WATER_NO_PROBE];
   if (lastWaterSampleMs > 0) water["sampleagems"] = millis() - lastWaterSampleMs;
 }
 

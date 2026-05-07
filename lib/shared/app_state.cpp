@@ -57,6 +57,7 @@ uint16_t waterAdcRaw = 0;
 uint8_t waterLevelIndex = 0;
 bool waterValid = false;
 bool waterProbePresent = false;
+bool waterProbing = false;
 
 bool startupDisplayActive = false;
 unsigned long startupDisplayUntilMs = 0;

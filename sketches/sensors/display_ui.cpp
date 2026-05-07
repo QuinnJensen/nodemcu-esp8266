@@ -106,9 +106,14 @@ void renderDisplay() {
     }
   }
 
+  // Water line -- show "probing" while measurement is active, level label after
   display.setCursor(0, 54);
   display.print("Water ");
-  display.print(waterLevelLabel(waterLevelIndex));
+  if (waterProbing) {
+    display.print("probing");
+  } else {
+    display.print(waterLevelLabel(waterLevelIndex));
+  }
   display.display();
 }
 

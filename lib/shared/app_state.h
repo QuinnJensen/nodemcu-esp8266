@@ -65,6 +65,7 @@ extern uint16_t waterAdcRaw;
 extern uint8_t waterLevelIndex;
 extern bool waterValid;
 extern bool waterProbePresent;
+extern bool waterProbing;   // true while sampleWaterLevel() measurement is running
 
 extern bool startupDisplayActive;
 extern unsigned long startupDisplayUntilMs;
