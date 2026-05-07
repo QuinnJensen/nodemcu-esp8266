@@ -1,4 +1,11 @@
-const state={status:null,temps:null,water:null,config:null,busy:false,page:'dashboard',pollTimer:null,modalOpen:false,filesLoaded:false,settingsRendered:false};
+const state={
+  status:null,temps:null,water:null,config:null,
+  busy:false,page:'dashboard',pollTimer:null,modalOpen:false,
+  filesLoaded:false,settingsRendered:false,
+  // JSON fingerprint of config fields this client last saw/saved.
+  // Used to detect external changes on the next poll tick.
+  configSnapshot:null
+};
 
 function esc(s){return String(s??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');}
 function fmtBool(v){return v?'Yes':'No';}
@@ -15,10 +22,72 @@ async function fetchLiveData(){
   state.water =await fetchJson('/api/water');
 }
 
+// Produce a stable fingerprint string from the mutable config fields.
+// Excludes derived fields like topics{} so only things the user can
+// actually change on the Settings page are compared.
+function configFingerprint(c){
+  if(!c)return '';
+  return JSON.stringify({
+    h:c.mqtthost||'',
+    p:c.mqttport??0,
+    b:c.basetopic||'',
+    d:c.deviceid||'',
+    pp:c.prometheusport??0,
+    le:!!c.led_enabled,
+    wi:c.water?.intervalms??0,
+    wt:(c.water?.thresholds||[]).join(',')
+  });
+}
+
+// Snapshot the current config so we can detect external changes later.
+function snapshotConfig(){
+  state.configSnapshot=configFingerprint(state.config);
+}
+
+// Show a dismissable banner at the top of #page-settings when another
+// client has changed config behind our back.
+function injectStaleConfigBanner(){
+  if(document.getElementById('stale-config-banner'))return; // already shown
+  const page=document.getElementById('page-settings');
+  if(!page)return;
+  const banner=document.createElement('div');
+  banner.id='stale-config-banner';
+  banner.style.cssText=[
+    'display:flex','align-items:center','justify-content:space-between',
+    'gap:12px','padding:10px 14px','margin-bottom:14px',
+    'background:rgba(217,164,65,.13)','border:1px solid rgba(217,164,65,.4)',
+    'border-radius:12px','font-size:14px','color:#efc374',
+    'grid-column:1/-1'
+  ].join(';');
+  banner.innerHTML=
+    `<span>⚠ Settings were changed by another session.</span>`+
+    `<span style='display:flex;gap:8px;flex-shrink:0'>`+
+      `<button class='btn secondary' style='font-size:13px;padding:6px 12px' `+
+        `onclick='reloadSettingsFromBanner()'>Reload Settings</button>`+
+      `<button style='background:none;border:none;color:#efc374;font-size:1.1rem;`+
+        `cursor:pointer;line-height:1;padding:0 4px' `+
+        `onclick='dismissStaleConfigBanner()' title='Dismiss'>&times;</button>`+
+    `</span>`;
+  // Prepend inside the grid so it spans full width via grid-column:1/-1
+  page.insertBefore(banner,page.firstChild);
+}
+
+function dismissStaleConfigBanner(){
+  const b=document.getElementById('stale-config-banner');
+  if(b)b.remove();
+}
+
+function reloadSettingsFromBanner(){
+  dismissStaleConfigBanner();
+  forceRenderSettings();
+}
+
 async function refreshAll(){
   stopPoll();
   try{
+    state.config=await fetchJson('/api/config');
     await fetchLiveData();
+    snapshotConfig();
     renderChrome();
     renderPages();
   }catch(e){console.warn('refreshAll error',e);}
@@ -28,6 +97,19 @@ async function refreshAll(){
 async function pollTick(){
   if(state.busy||state.modalOpen){schedulePoll();return;}
   try{
+    // Fetch config on every tick to detect external changes.
+    const freshConfig=await fetchJson('/api/config');
+    const freshPrint=configFingerprint(freshConfig);
+    if(state.configSnapshot && freshPrint!==state.configSnapshot){
+      // Config changed externally -- update our copy and warn if on Settings.
+      state.config=freshConfig;
+      if(state.settingsRendered) injectStaleConfigBanner();
+      // Do NOT update the snapshot here -- keep the old one so the banner
+      // stays visible until the user explicitly reloads or dismisses.
+    } else {
+      state.config=freshConfig;
+    }
+
     await fetchLiveData();
     renderChrome();
     renderDashboard();
@@ -95,7 +177,7 @@ function renderSensorNamesTable(rebuild=true){
   if(rebuild){
     tbody.innerHTML=sensors.length
       ?sensors.map(s=>{
-          const c=s.tempc===null?'-':Number(s.tempc).toFixed(1)+'°C / '+tempF(s.tempc)+'°F';
+          const c=s.tempc===null?'-':Number(s.tempc).toFixed(1)+'\u00b0C / '+tempF(s.tempc)+'\u00b0F';
           return `<tr data-idx='${s.index}'>`+
             `<td>${s.index}</td>`+
             `<td class='mono'>${esc(s.address)}</td>`+
@@ -112,7 +194,6 @@ function renderSensorNamesTable(rebuild=true){
   }
 
   // Patch mode: update only the Temp cell in each existing row.
-  // Match by data-idx so order doesn't matter.
   const byIdx={};
   sensors.forEach(s=>byIdx[s.index]=s);
   tbody.querySelectorAll('tr[data-idx]').forEach(tr=>{
@@ -120,7 +201,7 @@ function renderSensorNamesTable(rebuild=true){
     if(!s)return;
     const td=tr.cells[3];
     if(!td)return;
-    const c=s.tempc===null?'-':Number(s.tempc).toFixed(1)+'°C / '+tempF(s.tempc)+'°F';
+    const c=s.tempc===null?'-':Number(s.tempc).toFixed(1)+'\u00b0C / '+tempF(s.tempc)+'\u00b0F';
     const newText=s.connected?c:'disconnected';
     if(td.textContent!==newText){
       td.textContent=newText;
@@ -134,6 +215,7 @@ function renderSensorNamesTable(rebuild=true){
 function renderSettings(){
   if(state.settingsRendered)return;
   state.settingsRendered=true;
+  dismissStaleConfigBanner();
   const c=state.config||{};
   const ledChecked=c.led_enabled?'checked':'';
   document.getElementById('page-settings').innerHTML=
@@ -182,11 +264,15 @@ function renderSettings(){
     knob.style.background=chk.checked?'#fff':'#888';
   });
 
-  // Full rebuild on first render -- roster is fresh.
   renderSensorNamesTable(true);
 }
 
-function forceRenderSettings(){state.settingsRendered=false;renderSettings();}
+function forceRenderSettings(){
+  // Snapshot before rebuild so the fresh form values become the new baseline.
+  snapshotConfig();
+  state.settingsRendered=false;
+  renderSettings();
+}
 
 async function saveLed(){
   const chk=document.getElementById('led-toggle');
@@ -195,6 +281,7 @@ async function saveLed(){
   try{
     await postForm('/api/config/display',{led_enabled:chk.checked?'1':'0'});
     state.config=await fetchJson('/api/config');
+    snapshotConfig();
     forceRenderSettings();
   }catch(e){console.warn(e);}finally{setBusy(false);schedulePoll();}
 }
@@ -254,12 +341,10 @@ function renderPages(){
   renderWater();
   renderWifi();
   renderSettings();
-  // Full rebuild here since we just navigated or refreshed.
   renderSensorNamesTable(true);
   showPage(state.page);
 }
 
-// showPage() is navigation-only -- never call from pollTick.
 function showPage(name){
   state.page=name;
   document.querySelectorAll('.page').forEach(p=>p.classList.add('hidden'));
@@ -291,7 +376,7 @@ async function postScan(){
   const baselineAge=(state.temps||{}).last_rescan_ms_age??Infinity;
 
   try{
-    setScanLabel('Scanning…');
+    setScanLabel('Scanning\u2026');
     await postForm('/api/sensors/scan',{});
 
     const POLL_MS=800, TIMEOUT_MS=15000;
@@ -302,7 +387,7 @@ async function postScan(){
     while(Date.now()<deadline){
       await new Promise(r=>setTimeout(r,POLL_MS));
       elapsed+=POLL_MS;
-      setScanLabel(`Scanning… ${Math.round(elapsed/1000)}s`);
+      setScanLabel(`Scanning\u2026 ${Math.round(elapsed/1000)}s`);
       try{
         const t=await fetchJson('/api/temps');
         if(t.last_rescan_ms_age < baselineAge){
@@ -318,7 +403,6 @@ async function postScan(){
     renderChrome();
     renderDashboard();
     renderTemps();
-    // Full rebuild after scan -- sensor roster may have changed.
     renderSensorNamesTable(true);
   }catch(e){
     console.warn('postScan error',e);
@@ -335,6 +419,7 @@ async function postAction(url,obj={}){
     await postForm(url,obj);
     await fetchLiveData();
     state.config=await fetchJson('/api/config');
+    snapshotConfig();
     renderChrome();
     renderDashboard();
     renderTemps();
@@ -354,6 +439,7 @@ async function saveServices(ev){
     await postForm('/api/config/services',Object.fromEntries(fd.entries()));
     await fetchLiveData();
     state.config=await fetchJson('/api/config');
+    snapshotConfig();
     renderChrome();
     forceRenderSettings();
   }catch(e){console.warn(e);}finally{setBusy(false);schedulePoll();}
@@ -367,6 +453,7 @@ async function saveWater(ev){
     await postForm('/api/config/water',Object.fromEntries(fd.entries()));
     await fetchLiveData();
     state.config=await fetchJson('/api/config');
+    snapshotConfig();
     renderChrome();
     renderWater();
     showPage(state.page);
@@ -381,7 +468,6 @@ async function renameSensor(ev,index){
     await postForm('/api/sensors/rename',{index,name:fd.get('name')});
     await fetchLiveData();
     renderChrome();
-    // Full rebuild after a save so Current Name column reflects the new name.
     renderSensorNamesTable(true);
   }catch(e){console.warn(e);}finally{setBusy(false);schedulePoll();}
 }
@@ -392,6 +478,7 @@ document.querySelectorAll('.nav button').forEach(b=>b.addEventListener('click',(
   try{
     state.config=await fetchJson('/api/config');
     await fetchLiveData();
+    snapshotConfig();
     renderChrome();
     renderPages();
   }catch(e){console.warn('boot error',e);}
