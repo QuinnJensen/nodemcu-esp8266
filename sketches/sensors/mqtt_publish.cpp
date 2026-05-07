@@ -16,7 +16,10 @@ void publishAggregateStatus(bool retained) {
   Serial.println(mqtt.connected());
   if (!mqtt.connected()) return;
 
-  StaticJsonDocument<2048> doc;
+  // static: keeps this off the stack (ESP8266 has only ~4KB total stack)
+  static StaticJsonDocument<2048> doc;
+  doc.clear();
+
   doc["type"]             = "status";
   doc["id"]               = safeDeviceId();
   doc["chipid"]           = String(ESP.getChipId(), HEX);
@@ -57,7 +60,6 @@ void publishAggregateStatus(bool retained) {
     }
   }
 
-  // Debug: log serialized size so we can catch future truncation early
   Serial.print("[MQTT] aggregate doc size=");
   Serial.println(measureJson(doc));
 
@@ -68,7 +70,9 @@ void publishAggregateStatus(bool retained) {
 void publishPerSensorStatus(uint8_t i, bool retained) {
   if (!mqtt.connected() || i >= sensorCount) return;
 
-  StaticJsonDocument<512> doc;
+  static StaticJsonDocument<512> doc;
+  doc.clear();
+
   doc["type"]      = "sensor";
   doc["id"]        = safeDeviceId();
   doc["online"]    = true;
@@ -104,7 +108,9 @@ void publishPerSensorStatuses(bool retained) {
 void publishWaterStatus(bool retained) {
   if (!mqtt.connected()) return;
 
-  StaticJsonDocument<512> doc;
+  static StaticJsonDocument<512> doc;
+  doc.clear();
+
   doc["type"]   = "water";
   doc["id"]     = safeDeviceId();
   doc["online"] = true;
@@ -121,7 +127,9 @@ void publishWaterStatus(bool retained) {
 void publishCommandResult(const char* type, bool ok, const char* msg) {
   if (!mqtt.connected()) return;
 
-  StaticJsonDocument<256> reply;
+  static StaticJsonDocument<256> reply;
+  reply.clear();
+
   reply["type"]    = type ? type : "result";
   reply["id"]      = safeDeviceId();
   reply["ok"]      = ok;
