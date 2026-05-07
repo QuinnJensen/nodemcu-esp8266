@@ -8,7 +8,7 @@ const char* buildVersion = BUILD_VERSION;
 Adafruit_SSD1306 display(128, 64, &Wire, -1);
 WiFiClient wifiClient;
 PubSubClient mqtt(wifiClient);
-OneWire oneWire(ONE_WIRE_BUS);
+OneWire oneWire(oneWirePin);
 DallasTemperature ds(&oneWire);
 
 ESP8266WebServer webServer(80);
