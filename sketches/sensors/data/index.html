@@ -41,4 +41,832 @@ button,input{font:inherit}
 .kpi{font-size:30px;font-weight:800;margin:8px 0 4px}
 .muted{color:var(--muted)}
 .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
-.actions{display:flex;gap
+.actions{display:flex;gap:10px;flex-wrap:wrap}
+.btn{appearance:none;border:none;border-radius:12px;padding:10px 14px;cursor:pointer;background:var(--accent);color:#081013;font-weight:700}
+.btn.secondary{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+.btn.warn{background:var(--warn);color:#18140a}
+.btn:disabled{opacity:.55;cursor:wait}
+.form{display:grid;gap:12px}
+.field{display:grid;gap:6px}
+.field label{font-size:13px;color:var(--muted)}
+.field input{width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:11px 12px;outline:none}
+.field input:focus{border-color:var(--accent)}
+.table{width:100%;border-collapse:collapse}
+.table th,.table td{padding:11px 10px;border-bottom:1px solid var(--line);font-size:14px;text-align:left;vertical-align:middle}
+.table th{color:var(--muted);font-weight:600}
+.pill{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:700}
+.pill.good{background:rgba(111,190,122,.14);color:#9ae5a4}
+.pill.bad{background:rgba(217,108,108,.14);color:#f0a2a2}
+.pill.warn{background:rgba(217,164,65,.14);color:#efc374}
+.note{padding:12px 14px;border-radius:12px;background:rgba(87,167,179,.08);border:1px solid rgba(87,167,179,.24);color:#c7e6eb}
+.footer-note{margin-top:16px;color:var(--muted);font-size:13px}
+.hidden{display:none !important}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.small{font-size:12px}
+/* dashboard sensor list */
+.sensor-list{display:grid;gap:6px;margin-top:10px}
+.sensor-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;background:var(--panel2);border-radius:10px;border:1px solid var(--line)}
+.sensor-row .sname{font-size:13px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sensor-row .sreading{font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.sensor-row .sdot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.sensor-row .sdot.ok{background:var(--good)}
+.sensor-row .sdot.err{background:var(--bad)}
+/* Console */
+.console-wrap{display:flex;flex-direction:column;gap:10px;grid-column:1/-1}
+.console-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.console-toolbar .grow{flex:1}
+.console-pane{background:#0b0d10;border:1px solid var(--line);border-radius:12px;padding:10px 12px;height:54vh;min-height:320px;overflow-y:auto;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;line-height:1.45;color:#cfd6dd}
+.clog-line{white-space:pre-wrap;word-break:break-word;padding:1px 0}
+.clog-line .ts{color:#5e6a76;margin-right:6px}
+.clog-line .tag{display:inline-block;min-width:40px;margin-right:6px;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+.clog-line.rx   .tag{color:#87d6c1}
+.clog-line.tx   .tag{color:#7fb6e6}
+.clog-line.info .tag{color:#9aa6b2}
+.clog-line.warn{color:#efc374}
+.clog-line.warn .tag{color:#efc374}
+.clog-line.err {color:#f0a2a2}
+.clog-line.err  .tag{color:#f0a2a2}
+.console-input{display:flex;gap:8px;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:6px 8px}
+.console-input .prompt{color:var(--accent);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;padding:0 4px;user-select:none}
+.console-input input{flex:1;background:transparent;color:var(--text);border:none;outline:none;padding:8px 6px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px}
+.console-meta{display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:12px}
+@media (max-width:980px){
+  .app{grid-template-columns:1fr}
+  .sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--line);padding:12px 16px}
+  .sidebar .brand{margin-bottom:10px}
+  .nav{margin-top:8px;gap:6px;display:flex;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .nav::-webkit-scrollbar{display:none}
+  .nav button{flex-shrink:0;width:auto;padding:8px 12px;font-size:14px}
+  .main{padding:10px 14px 32px}
+  .topbar{margin-bottom:10px;gap:8px}
+  .title h2{font-size:22px}
+  .grid.two,.grid.three{grid-template-columns:1fr}
+  .topbar{align-items:flex-start}
+}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo">S</div>
+        <div>
+          <h1>Sensors</h1>
+          <p>node monitor</p>
+        </div>
+      </div>
+      <div class="nav">
+        <button data-page="dashboard" class="active">Dashboard</button>
+        <button data-page="temps">Temperature Network</button>
+        <button data-page="water">Water Probe</button>
+        <button data-page="wifi">WiFi</button>
+        <button data-page="console">Console</button>
+        <button data-page="settings">Settings</button>
+        <button data-page="files">LittleFS Files</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div class="title">
+          <h2 id="page-title">Dashboard</h2>
+          <p id="page-subtitle">Live node overview</p>
+        </div>
+        <div class="badges">
+          <div class="badge"><b id="badge-id">-</b></div>
+          <div class="badge">WiFi <b id="badge-wifi">-</b></div>
+          <div class="badge">MQTT <b id="badge-mqtt">-</b></div>
+          <div class="badge">Heap <b id="badge-heap">-</b></div>
+          <div class="badge ver" id="badge-version" title="Firmware build version">-</div>
+        </div>
+      </div>
+
+      <section id="page-dashboard" class="page grid"></section>
+      <section id="page-temps"     class="page grid hidden"></section>
+      <section id="page-water"     class="page grid hidden"></section>
+      <section id="page-wifi"      class="page grid hidden"></section>
+      <section id="page-console"   class="page grid hidden"></section>
+      <section id="page-settings"  class="page grid hidden"></section>
+      <section id="page-files"     class="page grid hidden"></section>
+    </main>
+  </div>
+
+  <!-- File viewer modal -->
+  <div id="file-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;padding:2rem;box-sizing:border-box">
+    <div style="background:#1c1b19;border:1px solid #333;border-radius:.5rem;max-width:860px;margin:0 auto;height:100%;display:flex;flex-direction:column">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem;border-bottom:1px solid #333">
+        <span id="modal-filename" style="font-family:monospace;font-size:.85rem;color:#ccc"></span>
+        <button onclick="closeFileModal()" style="background:none;border:none;color:#888;font-size:1.25rem;cursor:pointer;line-height:1">&times;</button>
+      </div>
+      <pre id="modal-content" style="flex:1;overflow:auto;padding:1rem;margin:0;font-size:.78rem;line-height:1.5;color:#c8c8c0;white-space:pre-wrap;word-break:break-all"></pre>
+    </div>
+  </div>
+
+  <script>
+// Poll timing constants
+const POLL_BASE    = 8000;
+const POLL_MAX     = 60000;
+const POLL_SLOW_MS = 6000;
+const POLL_STEP    = 4000;
+
+const state={
+  status:null,temps:null,water:null,config:null,
+  busy:false,page:'dashboard',pollTimer:null,modalOpen:false,
+  filesLoaded:false,settingsRendered:false,
+  configSnapshot:null,
+  poll:{ interval:POLL_BASE, errors:0, lastRtt:0 },
+  console:{ rendered:false, lastSeq:0, timer:null, history:[], histIdx:-1, autoscroll:true, intervalMs:2000 }
+};
+
+function esc(s){return String(s??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');}
+function fmtBool(v){return v?'Yes':'No';}
+function tempF(c){return (Number(c)*9/5+32).toFixed(1);}
+function ageSec(ms){if(!ms)return '0s';return Math.floor(ms/1000)+'s';}
+function setBusy(v){state.busy=v;document.querySelectorAll('.btn-action').forEach(b=>b.disabled=v);}
+function postForm(url,obj){const fd=new URLSearchParams();Object.entries(obj).forEach(([k,v])=>fd.append(k,v));return fetch(url,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:fd.toString()});}
+
+async function fetchJson(url){const r=await fetch(url,{cache:'no-store'});if(!r.ok)throw new Error(url);return r.json();}
+
+async function fetchLiveData(){
+  state.status=await fetchJson('/api/status');
+  state.temps =await fetchJson('/api/temps');
+  state.water =await fetchJson('/api/water');
+}
+
+function onPollSuccess(rttMs){
+  state.poll.lastRtt=rttMs;
+  state.poll.errors=0;
+  state.poll.interval=Math.max(POLL_BASE, state.poll.interval-POLL_STEP);
+}
+
+function onPollFailure(rttMs){
+  state.poll.lastRtt=rttMs;
+  state.poll.errors++;
+  state.poll.interval=Math.min(POLL_MAX, state.poll.interval*2);
+}
+
+function resetPollBackoff(){
+  state.poll.interval=POLL_BASE;
+  state.poll.errors=0;
+}
+
+function configFingerprint(c){
+  if(!c)return '';
+  return JSON.stringify({
+    h:c.mqtthost||'',p:c.mqttport??0,b:c.basetopic||'',d:c.deviceid||'',
+    pp:c.prometheusport??0,le:!!c.led_enabled,
+    wi:c.water?.intervalms??0,wt:(c.water?.thresholds||[]).join(',')
+  });
+}
+
+function snapshotConfig(){
+  state.configSnapshot=configFingerprint(state.config);
+}
+
+function injectStaleConfigBanner(){
+  if(document.getElementById('stale-config-banner'))return;
+  const page=document.getElementById('page-settings');
+  if(!page)return;
+  const banner=document.createElement('div');
+  banner.id='stale-config-banner';
+  banner.style.cssText=[
+    'display:flex','align-items:center','justify-content:space-between',
+    'gap:12px','padding:10px 14px','margin-bottom:14px',
+    'background:rgba(217,164,65,.13)','border:1px solid rgba(217,164,65,.4)',
+    'border-radius:12px','font-size:14px','color:#efc374',
+    'grid-column:1/-1'
+  ].join(';');
+  banner.innerHTML=
+    `<span>\u26a0 Settings were changed by another session.</span>`+
+    `<span style='display:flex;gap:8px;flex-shrink:0'>`+
+      `<button class='btn secondary' style='font-size:13px;padding:6px 12px' `+
+        `onclick='reloadSettingsFromBanner()'>Reload Settings</button>`+
+      `<button style='background:none;border:none;color:#efc374;font-size:1.1rem;`+
+        `cursor:pointer;line-height:1;padding:0 4px' `+
+        `onclick='dismissStaleConfigBanner()' title='Dismiss'>&times;</button>`+
+    `</span>`;
+  page.insertBefore(banner,page.firstChild);
+}
+
+function dismissStaleConfigBanner(){
+  const b=document.getElementById('stale-config-banner');
+  if(b)b.remove();
+}
+
+function reloadSettingsFromBanner(){
+  dismissStaleConfigBanner();
+  forceRenderSettings();
+}
+
+async function refreshAll(){
+  stopPoll();
+  resetPollBackoff();
+  try{
+    state.config=await fetchJson('/api/config');
+    await fetchLiveData();
+    snapshotConfig();
+    renderChrome();
+    renderPages();
+  }catch(e){console.warn('refreshAll error',e);}
+  schedulePoll();
+}
+
+async function pollTick(){
+  if(state.busy||state.modalOpen){schedulePoll();return;}
+  const t0=Date.now();
+  try{
+    const freshConfig=await fetchJson('/api/config');
+    const freshPrint=configFingerprint(freshConfig);
+    if(state.configSnapshot && freshPrint!==state.configSnapshot){
+      state.config=freshConfig;
+      if(state.settingsRendered) injectStaleConfigBanner();
+    } else {
+      state.config=freshConfig;
+    }
+    await fetchLiveData();
+    const rtt=Date.now()-t0;
+    if(rtt>POLL_SLOW_MS) onPollFailure(rtt);
+    else onPollSuccess(rtt);
+    renderChrome();
+    renderDashboard();
+    renderTemps();
+    renderWater();
+    renderWifi();
+    renderSensorNamesTable(false);
+  }catch(e){
+    onPollFailure(Date.now()-t0);
+    console.warn('poll error',e);
+  }
+  schedulePoll();
+}
+
+function schedulePoll(){
+  state.pollTimer=setTimeout(pollTick, state.poll.interval);
+}
+
+function stopPoll(){
+  if(state.pollTimer){clearTimeout(state.pollTimer);state.pollTimer=null;}
+}
+
+function renderChrome(){
+  const s=state.status||{};
+  document.getElementById('badge-id').textContent=s.id||'-';
+  document.getElementById('badge-wifi').textContent=s.wifi_connected?'up':'down';
+  document.getElementById('badge-mqtt').textContent=s.mqtt_connected?'up':'down';
+  const heap=(s.freeheap||0)+' B';
+  const backed=state.poll.interval>POLL_BASE;
+  document.getElementById('badge-heap').textContent=
+    backed ? heap+'\u2009/\u2009poll '+(state.poll.interval/1000|0)+'s' : heap;
+  const hb=document.getElementById('badge-heap');
+  if(hb) hb.style.opacity=backed?'0.65':'1';
+  const vb=document.getElementById('badge-version');
+  if(vb && s.build_version) vb.textContent=s.build_version;
+}
+
+// ── dashboard sensor list helpers ────────────────────────────────────────────
+function buildSensorListHtml(sensors){
+  if(!sensors||!sensors.length)
+    return `<div class='small muted' style='margin-top:8px'>No sensors detected. Run a bus scan.</div>`;
+  return `<div class='sensor-list'>`+
+    sensors.map(s=>{
+      const ok=!!s.connected;
+      const reading=ok&&s.tempc!==null
+        ? `${Number(s.tempc).toFixed(1)}\u00b0C\u2002/\u2002${tempF(s.tempc)}\u00b0F`
+        : ok ? '\u2013' : 'disconnected';
+      return `<div class='sensor-row'>`+
+        `<span class='sdot ${ok?"ok":"err"}'></span>`+
+        `<span class='sname'>${esc(s.name)}</span>`+
+        `<span class='sreading ${ok?"":"muted"}'>${esc(reading)}</span>`+
+      `</div>`;
+    }).join('')+
+  `</div>`;
+}
+
+function renderDashboard(){
+  const s=state.status||{};
+  const w=state.water||{};
+  const sensors=(state.temps||{}).sensors||[];
+
+  const sensorsCard=
+    `<div class='card'>`+
+      `<div style='display:flex;align-items:baseline;justify-content:space-between;gap:8px'>`+
+        `<div class='muted'>Sensors</div>`+
+        `<div class='small muted'>${s.sensorcount??0} on bus</div>`+
+      `</div>`+
+      buildSensorListHtml(sensors)+
+    `</div>`;
+
+  document.getElementById('page-dashboard').innerHTML=
+    `<div class='grid three'>`+
+      sensorsCard+
+      `<div class='card'><div class='muted'>Water Level</div><div class='kpi'>${esc(w.level||'-')}</div><div class='small muted'>ADC ${w.adc??0}</div></div>`+
+      `<div class='card'><div class='muted'>Uptime</div><div class='kpi'>${Math.floor((s.uptime_ms||0)/1000)}s</div><div class='small muted'>RSSI ${s.rssidbm??'-'} dBm</div></div>`+
+    `</div>`+
+    `<div class='grid two'>`+
+      `<div class='card'><h3>Node</h3>`+
+        `<p><b>ID:</b> <span class='mono'>${esc(s.id||'-')}</span></p>`+
+        `<p><b>SSID:</b> ${esc(s.ssid||'-')}</p>`+
+        `<p><b>IP:</b> <span class='mono'>${esc(s.ip||'-')}</span></p>`+
+        `<p><b>Command topic:</b> <span class='mono'>${esc((state.config||{}).topics?.command||'-')}</span></p>`+
+        `<p><b>Status topic:</b> <span class='mono'>${esc((state.config||{}).topics?.status||'-')}</span></p>`+
+      `</div>`+
+      `<div class='card'><h3>Quick Actions</h3>`+
+        `<div class='actions'>`+
+          `<button class='btn btn-action' onclick="postScan()">Scan 1-Wire Bus</button>`+
+          `<button class='btn secondary btn-action' onclick="postAction('/api/water/sample')">Force Water Sample</button>`+
+          `<button class='btn secondary' onclick='refreshAll()'>Refresh</button>`+
+        `</div>`+
+        `<p class='footer-note'>Actions are queued and executed after the HTTP response is sent to keep the ESP8266 responsive.</p>`+
+      `</div>`+
+    `</div>`;
+}
+
+function renderTemps(){
+  const t=state.temps||{};
+  const sensors=t.sensors||[];
+  document.getElementById('page-temps').innerHTML=`<div class='grid two'><div class='card'><h3>Temperature Network</h3><p><b>Detected:</b> ${t.sensorcount??0}</p><p><b>Physical network seen:</b> ${fmtBool(!!t.networkdetected)}</p><p><b>Simulated sensors:</b> ${fmtBool(!!t.simulated)}</p><div class='actions'><button class='btn btn-action' onclick="postScan()">Scan / Rediscover</button><button class='btn secondary' onclick='refreshAll()'>Refresh</button></div></div><div class='card'><h3>Sampling</h3><p><b>Last sample age:</b> ${ageSec(t.last_sample_ms_age)}</p><p><b>Last rescan age:</b> ${ageSec(t.last_rescan_ms_age)}</p><p class='footer-note'>Use this page to watch the current 1-Wire roster and temperatures without changing MQTT behavior.</p></div></div><div class='card'><h3>Live Sensors</h3><table class='table'><thead><tr><th>#</th><th>Name</th><th>Address</th><th>State</th><th>C</th><th>F</th></tr></thead><tbody>${sensors.length?sensors.map(s=>`<tr><td>${s.index}</td><td>${esc(s.name)}</td><td class='mono'>${esc(s.address)}</td><td>${s.connected?`<span class='pill good'>connected</span>`:`<span class='pill bad'>disconnected</span>`}</td><td>${s.tempc===null?'-':Number(s.tempc).toFixed(2)}</td><td>${s.tempc===null?'-':tempF(s.tempc)}</td></tr>`).join(''):`<tr><td colspan='6' class='muted'>No sensors available.</td></tr>`}</tbody></table></div>`;
+}
+
+function renderWater(){
+  const w=state.water||{};
+  const cfg=state.config||{};
+  const th=(cfg.water||{}).thresholds||[];
+  document.getElementById('page-water').innerHTML=`<div class='grid two'><div class='card'><h3>Live Water Probe</h3><p><b>Level:</b> ${esc(w.level||'-')}</p><p><b>Probe present:</b> ${fmtBool(!!w.probepresent)}</p><p><b>Reading valid:</b> ${fmtBool(!!w.valid)}</p><p><b>ADC:</b> ${w.adc??0}</p><p><b>Last sample age:</b> ${ageSec(w.sampleagems)}</p><div class='actions'><button class='btn btn-action' onclick="postAction('/api/water/sample')">Force Probe</button><button class='btn secondary' onclick='refreshAll()'>Refresh</button></div></div><div class='card'><h3>Thresholds</h3><p class='mono small'>noprobe: ${th[0]??'-'} | 40gal: ${th[1]??'-'} | 15-40gal: ${th[2]??'-'} | 5-15gal: ${th[3]??'-'} | 5gal: ${th[4]??'-'}</p><form class='form' onsubmit='saveWater(event)'><div class='field'><label>Heartbeat interval (ms)</label><input name='intervalms' type='number' min='1000' max='86400000' value='${(cfg.water||{}).intervalms??60000}'></div><div class='grid two'><div class='field'><label>No probe ADC</label><input name='t0' type='number' min='0' max='1023' value='${th[0]??20}'></div><div class='field'><label>40 gal ADC</label><input name='t1' type='number' min='0' max='1023' value='${th[1]??44}'></div><div class='field'><label>15-40 gal ADC</label><input name='t2' type='number' min='0' max='1023' value='${th[2]??268}'></div><div class='field'><label>5-15 gal ADC</label><input name='t3' type='number' min='0' max='1023' value='${th[3]??485}'></div><div class='field'><label>5 gal ADC</label><input name='t4' type='number' min='0' max='1023' value='${th[4]??1023}'></div></div><div class='actions'><button class='btn btn-action' type='submit'>Save Water Settings</button></div></form></div></div>`;
+}
+
+function renderWifi(){
+  const s=state.status||{};
+  document.getElementById('page-wifi').innerHTML=`<div class='grid two'><div class='card'><h3>WiFi Status</h3><p><b>Connected:</b> ${fmtBool(!!s.wifi_connected)}</p><p><b>SSID:</b> ${esc(s.ssid||'-')}</p><p><b>IP:</b> <span class='mono'>${esc(s.ip||'-')}</span></p><p><b>RSSI:</b> ${s.rssidbm??'-'} dBm</p></div><div class='card'><h3>WiFi Setup</h3><div class='note'>WiFi credentials are still handled by the startup portal in the current firmware layout. This page is reserved for the future always-on WiFi credential editor.</div><p class='footer-note'>That keeps this web UI expansion aligned with your current modules, since WiFi credentials are not yet stored in app_config.</p></div></div>`;
+}
+
+function renderSensorNamesTable(rebuild=true){
+  const tbody=document.getElementById('sn-tbody');
+  const countEl=document.getElementById('sn-count');
+  if(!tbody)return;
+  const sensors=(state.temps||{}).sensors||[];
+  if(countEl)countEl.textContent=sensors.length;
+  if(rebuild){
+    tbody.innerHTML=sensors.length
+      ?sensors.map(s=>{
+          const c=s.tempc===null?'-':Number(s.tempc).toFixed(1)+'\u00b0C / '+tempF(s.tempc)+'\u00b0F';
+          return `<tr data-idx='${s.index}'>`+
+            `<td>${s.index}</td>`+
+            `<td class='mono'>${esc(s.address)}</td>`+
+            `<td>${esc(s.name)}</td>`+
+            `<td class='mono small ${s.connected?'':'muted'}'>${s.connected?c:'disconnected'}</td>`+
+            `<td><form class='row' onsubmit='renameSensor(event,${s.index})'>`+
+              `<input name='name' value='${esc(s.name)}' maxlength='31' style='max-width:200px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:9px 10px'>`+
+              `<button class='btn btn-action' type='submit'>Save</button>`+
+            `</form></td>`+
+          `</tr>`;
+        }).join('')
+      :`<tr><td colspan='5' class='muted'>No active sensors. Run a bus scan first.</td></tr>`;
+    return;
+  }
+  const byIdx={};
+  sensors.forEach(s=>byIdx[s.index]=s);
+  tbody.querySelectorAll('tr[data-idx]').forEach(tr=>{
+    const s=byIdx[tr.dataset.idx];
+    if(!s)return;
+    const td=tr.cells[3];
+    if(!td)return;
+    const c=s.tempc===null?'-':Number(s.tempc).toFixed(1)+'\u00b0C / '+tempF(s.tempc)+'\u00b0F';
+    const newText=s.connected?c:'disconnected';
+    if(td.textContent!==newText){
+      td.textContent=newText;
+      td.className='mono small '+(s.connected?'':'muted');
+    }
+  });
+}
+
+// ── dashboard sensor list in-place update (no full rebuild) ──────────────────
+function updateDashboardSensorList(){
+  const list=document.querySelector('#page-dashboard .sensor-list');
+  if(!list)return; // card not yet rendered
+  const sensors=(state.temps||{}).sensors||[];
+  const rows=list.querySelectorAll('.sensor-row');
+  if(rows.length!==sensors.length){renderDashboard();return;} // count changed, rebuild
+  sensors.forEach((s,i)=>{
+    const row=rows[i];
+    if(!row)return;
+    const ok=!!s.connected;
+    const reading=ok&&s.tempc!==null
+      ? `${Number(s.tempc).toFixed(1)}\u00b0C\u2002/\u2002${tempF(s.tempc)}\u00b0F`
+      : ok ? '\u2013' : 'disconnected';
+    const dot=row.querySelector('.sdot');
+    const name=row.querySelector('.sname');
+    const val=row.querySelector('.sreading');
+    if(dot){dot.className='sdot '+(ok?'ok':'err');}
+    if(name&&name.textContent!==s.name){name.textContent=s.name;}
+    if(val&&val.textContent!==reading){val.textContent=reading;val.className='sreading '+(ok?'':'muted');}
+  });
+}
+
+function renderSettings(){
+  if(state.settingsRendered)return;
+  state.settingsRendered=true;
+  dismissStaleConfigBanner();
+  const c=state.config||{};
+  const ledChecked=c.led_enabled?'checked':'';
+  const ip=esc((state.status||{}).ip||'0.0.0.0');
+  const metricsPort=c.prometheusport??9111;
+  const metricsUrl=`http://${ip}:${metricsPort}/metrics`;
+  document.getElementById('page-settings').innerHTML=
+    `<div class='card' style='grid-column:1/-1'>`+
+      `<h3>Sensor Names <span id='sn-count' class='pill' style='font-size:.7rem;margin-left:.5rem'></span></h3>`+
+      `<p class='muted'>Names are persisted by 64-bit ROM address. Live readings update automatically.</p>`+
+      `<div class='actions' style='margin-bottom:.75rem'><button id='scan-bus-btn' class='btn secondary btn-action' onclick="postScan()">Scan Bus</button></div>`+
+      `<table class='table'><thead><tr><th>#</th><th>Address</th><th>Current Name</th><th>Temp</th><th>Rename</th></tr></thead>`+
+      `<tbody id='sn-tbody'></tbody></table>`+
+    `</div>`+
+    `<div class='grid two' style='grid-column:1/-1'><div class='card'><h3>MQTT &amp; Prometheus</h3><form class='form' onsubmit='saveServices(event)'>`+
+      `<div class='field'><label>MQTT host</label><input name='mqtthost' value='${esc(c.mqtthost||'')}'></div>`+
+      `<div class='grid two'><div class='field'><label>MQTT port</label><input name='mqttport' type='number' min='1' max='65535' value='${c.mqttport??1883}'></div>`+
+      `<div class='field'><label>Prometheus port</label><input name='prometheusport' type='number' min='1' max='65535' value='${c.prometheusport??9111}'></div></div>`+
+      `<div class='field'><label>Base topic</label><input name='basetopic' value='${esc(c.basetopic||'')}'></div>`+
+      `<div class='field'><label>Device ID</label><input name='deviceid' value='${esc(c.deviceid||'')}'></div>`+
+      `<div class='actions'><button class='btn btn-action' type='submit'>Save Services</button></div>`+
+    `</form></div>`+
+    `<div class='card'><h3>Resolved Topics</h3>`+
+      `<p><b>Command:</b><br><span class='mono small'>${esc((c.topics||{}).command||'-')}</span></p>`+
+      `<p><b>Status:</b><br><span class='mono small'>${esc((c.topics||{}).status||'-')}</span></p>`+
+      `<p><b>Results:</b><br><span class='mono small'>${esc((c.topics||{}).results||'-')}</span></p>`+
+      `<p><b>Water:</b><br><span class='mono small'>${esc((c.topics||{}).water||'-')}</span></p>`+
+      `<p><b>Metrics URL:</b><br><a class='mono small' href='${metricsUrl}' target='_blank' rel='noopener noreferrer' style='color:var(--accent);text-decoration:underline;text-underline-offset:3px'>${metricsUrl}</a></p>`+
+    `</div></div>`+
+    `<div class='card'>`+
+      `<h3>Display &amp; LEDs</h3>`+
+      `<div style='display:flex;align-items:center;justify-content:space-between;padding:.5rem 0'>`+
+        `<div><div style='font-size:.9rem'>Blue LED flash</div><div class='small muted'>Flashes on sensor reads when enabled</div></div>`+
+        `<label style='position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0'>`+
+          `<input type='checkbox' id='led-toggle' ${ledChecked} style='opacity:0;width:0;height:0;position:absolute'>`+
+          `<span id='led-slider' style='position:absolute;inset:0;background:${c.led_enabled?'var(--accent)':'#333'};border-radius:24px;cursor:pointer;transition:.2s'>`+
+            `<span id='led-knob' style='position:absolute;width:18px;height:18px;left:${c.led_enabled?'23':'3'}px;bottom:3px;background:${c.led_enabled?'#fff':'#888'};border-radius:50%;transition:.2s'></span>`+
+          `</span>`+
+        `</label>`+
+      `</div>`+
+      `<div class='actions' style='margin-top:.75rem'><button class='btn btn-action' onclick='saveLed()'>Save</button></div>`+
+    `</div>`;
+
+  const chk=document.getElementById('led-toggle');
+  const slider=document.getElementById('led-slider');
+  const knob=document.getElementById('led-knob');
+  if(chk)chk.addEventListener('change',()=>{
+    slider.style.background=chk.checked?'var(--accent)':'#333';
+    knob.style.left=chk.checked?'23px':'3px';
+    knob.style.background=chk.checked?'#fff':'#888';
+  });
+  renderSensorNamesTable(true);
+}
+
+function forceRenderSettings(){
+  snapshotConfig();
+  state.settingsRendered=false;
+  renderSettings();
+}
+
+async function saveLed(){
+  const chk=document.getElementById('led-toggle');
+  if(!chk)return;
+  setBusy(true);stopPoll();
+  try{
+    await postForm('/api/config/display',{led_enabled:chk.checked?'1':'0'});
+    state.config=await fetchJson('/api/config');
+    snapshotConfig();
+    forceRenderSettings();
+  }catch(e){console.warn(e);}finally{setBusy(false);resetPollBackoff();schedulePoll();}
+}
+
+function renderFiles(){
+  if(state.filesLoaded)return;
+  state.filesLoaded=true;
+  const el=document.getElementById('page-files');
+  el.innerHTML=`<div class='card' style='grid-column:1/-1'><h3>LittleFS Contents</h3><div id='fs-body'><span class='muted'>Loading...</span></div></div>`;
+  stopPoll();
+  fetch('/api/fs/list',{cache:'no-store'})
+    .then(r=>r.json())
+    .then(d=>{
+      const files=d.files||[];
+      const used=d.used_bytes||0;
+      const total=d.total_bytes||0;
+      const pct=total?Math.round(used/total*100):0;
+      const rows=files.length
+        ?files.map(f=>`<tr><td class='mono'>${esc(f.name)}</td><td style='text-align:right'>${f.size}</td><td><button class='btn secondary' onclick="viewFile('${esc(f.name)}')">View</button></td></tr>`).join('')
+        :`<tr><td colspan='3' class='muted'>No files found.</td></tr>`;
+      document.getElementById('fs-body').innerHTML=
+        `<p style='margin-bottom:.75rem'><b>Used:</b> ${used} / ${total} bytes (${pct}%)<button class='btn secondary' style='margin-left:1rem' onclick='reloadFiles()'>Reload</button></p>`+
+        `<table class='table'><thead><tr><th>File</th><th style='text-align:right'>Bytes</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+    })
+    .catch(()=>{document.getElementById('fs-body').innerHTML=`<span class='muted'>Failed to load file list.</span>`;state.filesLoaded=false;})
+    .finally(()=>schedulePoll());
+}
+
+function reloadFiles(){state.filesLoaded=false;renderFiles();}
+
+function viewFile(name){
+  const path=name.startsWith('/')?name:'/'+name;
+  document.getElementById('modal-filename').textContent=path;
+  document.getElementById('modal-content').textContent='Loading...';
+  document.getElementById('file-modal').style.display='block';
+  state.modalOpen=true;
+  stopPoll();
+  fetch('/api/fs/file?path='+encodeURIComponent(path),{cache:'no-store'})
+    .then(r=>r.text())
+    .then(t=>{document.getElementById('modal-content').textContent=t;})
+    .catch(()=>{document.getElementById('modal-content').textContent='Error loading file.';});
+}
+
+function closeFileModal(){
+  document.getElementById('file-modal').style.display='none';
+  document.getElementById('modal-content').textContent='';
+  state.modalOpen=false;
+  schedulePoll();
+}
+
+document.getElementById('file-modal').addEventListener('click',function(e){if(e.target===this)closeFileModal();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeFileModal();});
+
+// ── Console ─────────────────────────────────────────────────────────────────
+function renderConsole(){
+  if(state.console.rendered) return;
+  state.console.rendered=true;
+  document.getElementById('page-console').innerHTML=
+    `<div class='card console-wrap'>`+
+      `<div class='console-toolbar'>`+
+        `<div class='grow muted small'>Most recent device events. Type <span class='mono'>/help</span> for available commands.</div>`+
+        `<button id='console-clear-btn' class='btn secondary' type='button'>Clear</button>`+
+      `</div>`+
+      `<div id='console-pane' class='console-pane' aria-live='polite'></div>`+
+      `<form id='console-form' class='console-input' autocomplete='off' onsubmit='return sendConsoleCommand(event)'>`+
+        `<span class='prompt'>&gt;</span>`+
+        `<input id='console-cmd' name='cmd' spellcheck='false' autocapitalize='off' autocorrect='off' placeholder='/help  or  {"command":"scan"}'>`+
+        `<button class='btn' type='submit'>Send</button>`+
+      `</form>`+
+      `<div class='console-meta'>`+
+        `<span id='console-status' class='small muted'>idle</span>`+
+        `<span class='small muted'>buffer: 48 entries</span>`+
+      `</div>`+
+    `</div>`;
+  document.getElementById('console-clear-btn').addEventListener('click',clearConsoleDisplay);
+  document.getElementById('console-pane').addEventListener('scroll',onConsoleScroll);
+  const inp=document.getElementById('console-cmd');
+  if(inp){
+    inp.addEventListener('keydown',onConsoleKey);
+  }
+}
+
+function clearConsoleDisplay(){
+  const pane=document.getElementById('console-pane');
+  if(pane) pane.innerHTML='';
+  // Note: we do NOT reset lastSeq, so we won't re-fetch already-seen entries.
+}
+
+function onConsoleScroll(){
+  const pane=document.getElementById('console-pane');
+  if(!pane) return;
+  const nearBottom=pane.scrollHeight - pane.scrollTop - pane.clientHeight < 24;
+  state.console.autoscroll=nearBottom;
+}
+
+function onConsoleKey(e){
+  const inp=e.currentTarget;
+  if(e.key==='ArrowUp'){
+    if(state.console.history.length===0) return;
+    e.preventDefault();
+    if(state.console.histIdx<0) state.console.histIdx=state.console.history.length-1;
+    else if(state.console.histIdx>0) state.console.histIdx--;
+    inp.value=state.console.history[state.console.histIdx]||'';
+  } else if(e.key==='ArrowDown'){
+    if(state.console.histIdx<0) return;
+    e.preventDefault();
+    state.console.histIdx++;
+    if(state.console.histIdx>=state.console.history.length){
+      state.console.histIdx=-1;
+      inp.value='';
+    } else {
+      inp.value=state.console.history[state.console.histIdx]||'';
+    }
+  }
+}
+
+function consoleAppendEntries(entries){
+  if(!entries||!entries.length) return;
+  const pane=document.getElementById('console-pane');
+  if(!pane) return;
+  const frag=document.createDocumentFragment();
+  for(const e of entries){
+    const div=document.createElement('div');
+    const cls=(e.type||'info').toLowerCase();
+    div.className='clog-line '+cls;
+    const ts=Math.floor((e.uptime_ms||0)/1000);
+    const tsTxt=String(Math.floor(ts/60)).padStart(3,'0')+':'+String(ts%60).padStart(2,'0');
+    div.innerHTML=`<span class='ts'>${tsTxt}</span><span class='tag'>${esc(cls)}</span><span class='msg'>${esc(e.msg||'')}</span>`;
+    frag.appendChild(div);
+  }
+  pane.appendChild(frag);
+  // Trim DOM to keep memory bounded on long sessions.
+  const MAX_DOM=300;
+  while(pane.children.length>MAX_DOM) pane.removeChild(pane.firstChild);
+  if(state.console.autoscroll) pane.scrollTop=pane.scrollHeight;
+}
+
+async function pollConsoleOnce(){
+  try{
+    const r=await fetch('/api/console/log?after='+state.console.lastSeq,{cache:'no-store'});
+    if(!r.ok) throw new Error('http '+r.status);
+    const d=await r.json();
+    if(Array.isArray(d.entries)) consoleAppendEntries(d.entries);
+    if(typeof d.seq==='number') state.console.lastSeq=d.seq;
+    const sEl=document.getElementById('console-status');
+    if(sEl) sEl.textContent='last seq '+state.console.lastSeq;
+  }catch(err){
+    const sEl=document.getElementById('console-status');
+    if(sEl) sEl.textContent='offline ('+err.message+')';
+  }
+}
+
+function startConsolePoll(){
+  stopConsolePoll();
+  pollConsoleOnce();
+  state.console.timer=setInterval(pollConsoleOnce, state.console.intervalMs);
+}
+
+function stopConsolePoll(){
+  if(state.console.timer){clearInterval(state.console.timer); state.console.timer=null;}
+}
+
+async function sendConsoleCommand(ev){
+  if(ev) ev.preventDefault();
+  const inp=document.getElementById('console-cmd');
+  if(!inp) return false;
+  const cmd=(inp.value||'').trim();
+  if(!cmd) return false;
+  // Local-only /clear: blank the pane without round-tripping.
+  if(cmd.toLowerCase()==='/clear'){
+    clearConsoleDisplay();
+    state.console.history.push(cmd);
+    state.console.histIdx=-1;
+    inp.value='';
+    return false;
+  }
+  state.console.history.push(cmd);
+  if(state.console.history.length>40) state.console.history.shift();
+  state.console.histIdx=-1;
+  inp.value='';
+  try{
+    await postForm('/api/console/command',{cmd});
+  }catch(e){
+    console.warn('console send error',e);
+  }
+  // Trigger a quick fetch so the response appears promptly.
+  pollConsoleOnce();
+  return false;
+}
+
+function renderPages(){
+  renderDashboard();
+  renderTemps();
+  renderWater();
+  renderWifi();
+  renderSettings();
+  renderSensorNamesTable(true);
+  showPage(state.page);
+}
+
+function showPage(name){
+  state.page=name;
+  document.querySelectorAll('.page').forEach(p=>p.classList.add('hidden'));
+  const page=document.getElementById('page-'+name);
+  if(page)page.classList.remove('hidden');
+  document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===name));
+  const titles={
+    dashboard: ['Dashboard','Live node overview'],
+    temps:     ['Temperature Network','Monitor and rescan the 1-Wire sensor bus'],
+    water:     ['Water Probe','Live level status and threshold configuration'],
+    wifi:      ['WiFi','Current connection state'],
+    console:   ['Console','Recent device events and direct command entry'],
+    settings:  ['Settings','Sensor names, MQTT broker, topics, identity, and metrics'],
+    files:     ['LittleFS Files','Browse and inspect files stored on the device filesystem']
+  };
+  document.getElementById('page-title').textContent=(titles[name]||['',''])[0];
+  document.getElementById('page-subtitle').textContent=(titles[name]||['',''])[1];
+  if(name==='settings'){state.settingsRendered=false;renderSettings();}
+  if(name==='files'){state.filesLoaded=false;renderFiles();}
+  if(name==='console'){renderConsole();startConsolePoll();}
+  else{stopConsolePoll();}
+}
+
+async function postScan(){
+  setBusy(true);
+  stopPoll();
+  function setScanLabel(txt){
+    document.querySelectorAll('#scan-bus-btn, .btn-scan').forEach(b=>b.textContent=txt);
+  }
+  const baselineAge=(state.temps||{}).last_rescan_ms_age??Infinity;
+  try{
+    setScanLabel('Scanning\u2026');
+    await postForm('/api/sensors/scan',{});
+    const POLL_MS=800, TIMEOUT_MS=15000;
+    const deadline=Date.now()+TIMEOUT_MS;
+    let elapsed=0;
+    let done=false;
+    while(Date.now()<deadline){
+      await new Promise(r=>setTimeout(r,POLL_MS));
+      elapsed+=POLL_MS;
+      setScanLabel(`Scanning\u2026 ${Math.round(elapsed/1000)}s`);
+      try{
+        const t=await fetchJson('/api/temps');
+        if(t.last_rescan_ms_age < baselineAge){state.temps=t;done=true;break;}
+      }catch(_){}
+    }
+    await fetchLiveData();
+    setScanLabel(done?'Scan Bus':'Scan Bus (timeout)');
+    renderChrome();
+    renderDashboard();
+    renderTemps();
+    renderSensorNamesTable(true);
+  }catch(e){
+    console.warn('postScan error',e);
+    setScanLabel('Scan Bus');
+  }finally{
+    setBusy(false);
+    resetPollBackoff();
+    schedulePoll();
+  }
+}
+
+async function postAction(url,obj={}){
+  setBusy(true);stopPoll();
+  try{
+    await postForm(url,obj);
+    await fetchLiveData();
+    state.config=await fetchJson('/api/config');
+    snapshotConfig();
+    renderChrome();
+    renderDashboard();
+    renderTemps();
+    renderWater();
+    renderWifi();
+    renderSensorNamesTable(true);
+    showPage(state.page);
+  }catch(e){console.warn('postAction error',e);}
+  finally{setBusy(false);resetPollBackoff();schedulePoll();}
+}
+
+async function saveServices(ev){
+  ev.preventDefault();
+  const fd=new FormData(ev.target);
+  setBusy(true);stopPoll();
+  try{
+    await postForm('/api/config/services',Object.fromEntries(fd.entries()));
+    await fetchLiveData();
+    state.config=await fetchJson('/api/config');
+    snapshotConfig();
+    renderChrome();
+    forceRenderSettings();
+  }catch(e){console.warn(e);}finally{setBusy(false);resetPollBackoff();schedulePoll();}
+}
+
+async function saveWater(ev){
+  ev.preventDefault();
+  const fd=new FormData(ev.target);
+  setBusy(true);stopPoll();
+  try{
+    await postForm('/api/config/water',Object.fromEntries(fd.entries()));
+    await fetchLiveData();
+    state.config=await fetchJson('/api/config');
+    snapshotConfig();
+    renderChrome();
+    renderWater();
+    showPage(state.page);
+  }catch(e){console.warn(e);}finally{setBusy(false);resetPollBackoff();schedulePoll();}
+}
+
+async function renameSensor(ev,index){
+  ev.preventDefault();
+  const fd=new FormData(ev.target);
+  setBusy(true);stopPoll();
+  try{
+    await postForm('/api/sensors/rename',{index,name:fd.get('name')});
+    await fetchLiveData();
+    renderChrome();
+    renderSensorNamesTable(true);
+    updateDashboardSensorList();
+  }catch(e){console.warn(e);}finally{setBusy(false);resetPollBackoff();schedulePoll();}
+}
+
+document.querySelectorAll('.nav button').forEach(b=>b.addEventListener('click',()=>showPage(b.dataset.page)));
+
+(async()=>{
+  try{
+    state.config=await fetchJson('/api/config');
+    await fetchLiveData();
+    snapshotConfig();
+    renderChrome();
+    renderPages();
+  }catch(e){console.warn('boot error',e);}
+  schedulePoll();
+})();
+  </script>
+</body>
+</html>
