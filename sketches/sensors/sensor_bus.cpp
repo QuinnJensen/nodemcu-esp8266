@@ -13,7 +13,7 @@ bool conversionPending = false;
 unsigned long conversionRequestedMs = 0;
 
 void initSensorBus() {
-  ds.setWaitForConversion(false); // always async from here on
+  ds.setWaitForConversion(false); // always async
   ds.begin();
 }
 
@@ -63,7 +63,7 @@ void scanSensors(bool force) {
   oneWire.reset_search();
   DeviceAddress addr;
   while (found < maxsensors && oneWire.search(addr)) {
-    yield(); // feed WDT during bus search
+    yield();
     if (!ds.validAddress(addr)) continue;
     bool seen = false;
     for (uint8_t i = 0; i < found; i++) {
@@ -106,18 +106,18 @@ void scanSensors(bool force) {
 // Phase 1: fire conversion and return immediately (non-blocking)
 void requestTemperatureConversion() {
   if (useFakeSensors || sensorCount == 0) return;
-  ds.requestTemperatures(); // returns immediately because setWaitForConversion(false)
+  pulseSpinnerDot(900);  // dot visible for full conversion window
+  ds.requestTemperatures();
   conversionPending = true;
   conversionRequestedMs = millis();
 }
 
-// Phase 2: collect results -- only call 800ms after requestTemperatureConversion()
+// Phase 2: collect results -- call 800ms after requestTemperatureConversion()
 void collectTemperatureResults() {
   if (useFakeSensors || !conversionPending) return;
   conversionPending = false;
   for (uint8_t i = 0; i < sensorCount; i++) {
     yield();
-    flashBlueLed(5); // short flash per sensor, yield() fed before each
     float t = ds.getTempC(sensorAddresses[i]);
     if (t == DEVICE_DISCONNECTED_C) {
       sensorTempsC[i] = NAN;
@@ -130,17 +130,15 @@ void collectTemperatureResults() {
   lastSensorSampleMs = millis();
 }
 
-// Blocking shim retained for setup() initial read -- feeds WDT safely
+// Blocking shim for setup()/onMqttConnected() initial read -- feeds WDT safely
 void readTemperatures() {
   if (useFakeSensors) return;
-  ds.setWaitForConversion(false);
+  pulseSpinnerDot(900);
   ds.requestTemperatures();
-  // Wait 800ms feeding the WDT every 10ms
   unsigned long start = millis();
   while (millis() - start < 800) { yield(); }
   for (uint8_t i = 0; i < sensorCount; i++) {
     yield();
-    flashBlueLed(5);
     float t = ds.getTempC(sensorAddresses[i]);
     if (t == DEVICE_DISCONNECTED_C) {
       sensorTempsC[i] = NAN;
@@ -154,7 +152,6 @@ void readTemperatures() {
 
 void sampleSensors() {
   scanSensors();
-  // Fire async conversion; scheduler will collect results after 800ms
   requestTemperatureConversion();
 }
 

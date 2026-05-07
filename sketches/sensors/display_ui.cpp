@@ -10,6 +10,8 @@
 #include <Adafruit_SSD1306.h>
 #include "pins_and_constants.h"
 
+static unsigned long centerDotUntilMs = 0;
+
 String formatHeaderLine(const String& deviceId, const String& ssid) {
   String header = deviceId;
   if (ssid.length()) header += " (" + ssid + ")";
@@ -23,9 +25,12 @@ void setBlueLed(bool on) {
 }
 
 void flashBlueLed(unsigned int onMs) {
-  setBlueLed(true);
-  delay(onMs);
-  setBlueLed(false);
+  // legacy shim -- now a no-op; activity shown via pulseSpinnerDot()
+  (void)onMs;
+}
+
+void pulseSpinnerDot(unsigned long durationMs) {
+  centerDotUntilMs = millis() + durationMs;
 }
 
 void drawSpinner(int cx, int cy, uint8_t frame) {
@@ -38,6 +43,10 @@ void drawSpinner(int cx, int cy, uint8_t frame) {
     if (i >= 6) display.fillCircle(px, py, 2, SSD1306_WHITE);
     else if (i >= 3) display.drawCircle(px, py, 1, SSD1306_WHITE);
     else display.drawPixel(px, py, SSD1306_WHITE);
+  }
+  // Center dot: lit while a sensor read or MQTT publish is in progress
+  if (millis() < centerDotUntilMs) {
+    display.fillCircle(cx, cy, 2, SSD1306_WHITE);
   }
 }
 
@@ -110,7 +119,7 @@ void renderDisplay() {
     }
   }
 
-  // Water line + heartbeat counter
+  // Water line
   display.setCursor(0, 54);
   display.print("Water ");
   display.print(waterLevelLabel(waterLevelIndex));
@@ -128,6 +137,7 @@ void kickActivitySpinner(unsigned long durationMs) {
   mqttTrafficActive = true;
   lastTrafficAnimMs = millis() + durationMs - 1500UL;
   spinnerFrame = (spinnerFrame + 1) & 0x07;
+  pulseSpinnerDot(durationMs);  // also light center dot on MQTT activity
 }
 
 void showStartupReconfigCountdown(uint8_t secondsLeft) {
