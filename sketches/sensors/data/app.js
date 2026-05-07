@@ -1,10 +1,15 @@
+// Poll timing constants
+const POLL_BASE    = 8000;   // normal interval ms
+const POLL_MAX     = 60000;  // maximum backoff cap ms
+const POLL_SLOW_MS = 6000;   // RTT above this is considered "slow"
+const POLL_STEP    = 4000;   // recovery step toward POLL_BASE on success
+
 const state={
   status:null,temps:null,water:null,config:null,
   busy:false,page:'dashboard',pollTimer:null,modalOpen:false,
   filesLoaded:false,settingsRendered:false,
-  // JSON fingerprint of config fields this client last saw/saved.
-  // Used to detect external changes on the next poll tick.
-  configSnapshot:null
+  configSnapshot:null,
+  poll:{ interval:POLL_BASE, errors:0, lastRtt:0 }
 };
 
 function esc(s){return String(s??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');}
@@ -22,9 +27,29 @@ async function fetchLiveData(){
   state.water =await fetchJson('/api/water');
 }
 
-// Produce a stable fingerprint string from the mutable config fields.
-// Excludes derived fields like topics{} so only things the user can
-// actually change on the Settings page are compared.
+// ── Adaptive poll backoff ──────────────────────────────────────────────────
+
+function onPollSuccess(rttMs){
+  state.poll.lastRtt=rttMs;
+  state.poll.errors=0;
+  // Step interval back toward base; never go below it.
+  state.poll.interval=Math.max(POLL_BASE, state.poll.interval-POLL_STEP);
+}
+
+function onPollFailure(rttMs){
+  state.poll.lastRtt=rttMs;
+  state.poll.errors++;
+  // Double the interval, cap at POLL_MAX.
+  state.poll.interval=Math.min(POLL_MAX, state.poll.interval*2);
+}
+
+function resetPollBackoff(){
+  state.poll.interval=POLL_BASE;
+  state.poll.errors=0;
+}
+
+// ── Config fingerprint / snapshot ─────────────────────────────────────────
+
 function configFingerprint(c){
   if(!c)return '';
   return JSON.stringify({
@@ -39,15 +64,14 @@ function configFingerprint(c){
   });
 }
 
-// Snapshot the current config so we can detect external changes later.
 function snapshotConfig(){
   state.configSnapshot=configFingerprint(state.config);
 }
 
-// Show a dismissable banner at the top of #page-settings when another
-// client has changed config behind our back.
+// ── Stale-config banner ────────────────────────────────────────────────────
+
 function injectStaleConfigBanner(){
-  if(document.getElementById('stale-config-banner'))return; // already shown
+  if(document.getElementById('stale-config-banner'))return;
   const page=document.getElementById('page-settings');
   if(!page)return;
   const banner=document.createElement('div');
@@ -60,7 +84,7 @@ function injectStaleConfigBanner(){
     'grid-column:1/-1'
   ].join(';');
   banner.innerHTML=
-    `<span>⚠ Settings were changed by another session.</span>`+
+    `<span>\u26a0 Settings were changed by another session.</span>`+
     `<span style='display:flex;gap:8px;flex-shrink:0'>`+
       `<button class='btn secondary' style='font-size:13px;padding:6px 12px' `+
         `onclick='reloadSettingsFromBanner()'>Reload Settings</button>`+
@@ -68,7 +92,6 @@ function injectStaleConfigBanner(){
         `cursor:pointer;line-height:1;padding:0 4px' `+
         `onclick='dismissStaleConfigBanner()' title='Dismiss'>&times;</button>`+
     `</span>`;
-  // Prepend inside the grid so it spans full width via grid-column:1/-1
   page.insertBefore(banner,page.firstChild);
 }
 
@@ -82,8 +105,11 @@ function reloadSettingsFromBanner(){
   forceRenderSettings();
 }
 
+// ── Poll loop ──────────────────────────────────────────────────────────────
+
 async function refreshAll(){
   stopPoll();
+  resetPollBackoff();
   try{
     state.config=await fetchJson('/api/config');
     await fetchLiveData();
@@ -96,42 +122,65 @@ async function refreshAll(){
 
 async function pollTick(){
   if(state.busy||state.modalOpen){schedulePoll();return;}
+  const t0=Date.now();
   try{
-    // Fetch config on every tick to detect external changes.
     const freshConfig=await fetchJson('/api/config');
     const freshPrint=configFingerprint(freshConfig);
     if(state.configSnapshot && freshPrint!==state.configSnapshot){
-      // Config changed externally -- update our copy and warn if on Settings.
       state.config=freshConfig;
       if(state.settingsRendered) injectStaleConfigBanner();
-      // Do NOT update the snapshot here -- keep the old one so the banner
-      // stays visible until the user explicitly reloads or dismisses.
     } else {
       state.config=freshConfig;
     }
 
     await fetchLiveData();
+
+    const rtt=Date.now()-t0;
+    if(rtt>POLL_SLOW_MS){
+      onPollFailure(rtt);
+    } else {
+      onPollSuccess(rtt);
+    }
+
     renderChrome();
     renderDashboard();
     renderTemps();
     renderWater();
     renderWifi();
-    // Patch-only: update Temp column without touching the Rename inputs.
     renderSensorNamesTable(false);
-  }catch(e){console.warn('poll error',e);}
+  }catch(e){
+    onPollFailure(Date.now()-t0);
+    console.warn('poll error',e);
+  }
   schedulePoll();
 }
 
-function schedulePoll(){state.pollTimer=setTimeout(pollTick,8000);}
-function stopPoll(){if(state.pollTimer){clearTimeout(state.pollTimer);state.pollTimer=null;}}
+function schedulePoll(){
+  state.pollTimer=setTimeout(pollTick, state.poll.interval);
+}
+
+function stopPoll(){
+  if(state.pollTimer){clearTimeout(state.pollTimer);state.pollTimer=null;}
+}
+
+// ── Chrome / header bar ────────────────────────────────────────────────────
 
 function renderChrome(){
   const s=state.status||{};
   document.getElementById('badge-id').textContent=s.id||'-';
   document.getElementById('badge-wifi').textContent=s.wifi_connected?'up':'down';
   document.getElementById('badge-mqtt').textContent=s.mqtt_connected?'up':'down';
-  document.getElementById('badge-heap').textContent=(s.freeheap||0)+' B';
+
+  // Show heap; append poll interval when backed off so throttling is visible.
+  const heap=(s.freeheap||0)+' B';
+  const backed=state.poll.interval>POLL_BASE;
+  document.getElementById('badge-heap').textContent=
+    backed ? heap+'\u2009/\u2009poll '+(state.poll.interval/1000|0)+'s' : heap;
+  const hb=document.getElementById('badge-heap');
+  if(hb) hb.style.opacity=backed?'0.65':'1';
 }
+
+// ── Page renderers ─────────────────────────────────────────────────────────
 
 function renderDashboard(){
   const s=state.status||{};
@@ -157,16 +206,6 @@ function renderWifi(){
   document.getElementById('page-wifi').innerHTML=`<div class='grid two'><div class='card'><h3>WiFi Status</h3><p><b>Connected:</b> ${fmtBool(!!s.wifi_connected)}</p><p><b>SSID:</b> ${esc(s.ssid||'-')}</p><p><b>IP:</b> <span class='mono'>${esc(s.ip||'-')}</span></p><p><b>RSSI:</b> ${s.rssidbm??'-'} dBm</p></div><div class='card'><h3>WiFi Setup</h3><div class='note'>WiFi credentials are still handled by the startup portal in the current firmware layout. This page is reserved for the future always-on WiFi credential editor.</div><p class='footer-note'>That keeps this web UI expansion aligned with your current modules, since WiFi credentials are not yet stored in app_config.</p></div></div>`;
 }
 
-// renderSensorNamesTable(rebuild)
-//
-// rebuild=true  (default): full tbody replacement. Use after first render,
-//               a successful rename, or a bus scan -- when the row roster
-//               itself may have changed.
-//
-// rebuild=false: PATCH MODE -- walks existing <tr> elements and updates
-//               ONLY td[3] (Temp column) via textContent. td[4] (the
-//               Rename <input> and Save button) is never touched, so
-//               any in-progress edits survive the poll tick.
 function renderSensorNamesTable(rebuild=true){
   const tbody=document.getElementById('sn-tbody');
   const countEl=document.getElementById('sn-count');
@@ -193,7 +232,6 @@ function renderSensorNamesTable(rebuild=true){
     return;
   }
 
-  // Patch mode: update only the Temp cell in each existing row.
   const byIdx={};
   sensors.forEach(s=>byIdx[s.index]=s);
   tbody.querySelectorAll('tr[data-idx]').forEach(tr=>{
@@ -210,8 +248,6 @@ function renderSensorNamesTable(rebuild=true){
   });
 }
 
-// Renders the static page scaffold ONCE per navigation visit.
-// NEVER call this from pollTick -- use renderSensorNamesTable(false) for live data.
 function renderSettings(){
   if(state.settingsRendered)return;
   state.settingsRendered=true;
@@ -268,7 +304,6 @@ function renderSettings(){
 }
 
 function forceRenderSettings(){
-  // Snapshot before rebuild so the fresh form values become the new baseline.
   snapshotConfig();
   state.settingsRendered=false;
   renderSettings();
@@ -283,7 +318,7 @@ async function saveLed(){
     state.config=await fetchJson('/api/config');
     snapshotConfig();
     forceRenderSettings();
-  }catch(e){console.warn(e);}finally{setBusy(false);schedulePoll();}
+  }catch(e){console.warn(e);}finally{setBusy(false);resetPollBackoff();schedulePoll();}
 }
 
 function renderFiles(){
@@ -409,6 +444,7 @@ async function postScan(){
     setScanLabel('Scan Bus');
   }finally{
     setBusy(false);
+    resetPollBackoff();
     schedulePoll();
   }
 }
@@ -428,7 +464,7 @@ async function postAction(url,obj={}){
     renderSensorNamesTable(true);
     showPage(state.page);
   }catch(e){console.warn('postAction error',e);}
-  finally{setBusy(false);schedulePoll();}
+  finally{setBusy(false);resetPollBackoff();schedulePoll();}
 }
 
 async function saveServices(ev){
@@ -442,7 +478,7 @@ async function saveServices(ev){
     snapshotConfig();
     renderChrome();
     forceRenderSettings();
-  }catch(e){console.warn(e);}finally{setBusy(false);schedulePoll();}
+  }catch(e){console.warn(e);}finally{setBusy(false);resetPollBackoff();schedulePoll();}
 }
 
 async function saveWater(ev){
@@ -457,7 +493,7 @@ async function saveWater(ev){
     renderChrome();
     renderWater();
     showPage(state.page);
-  }catch(e){console.warn(e);}finally{setBusy(false);schedulePoll();}
+  }catch(e){console.warn(e);}finally{setBusy(false);resetPollBackoff();schedulePoll();}
 }
 
 async function renameSensor(ev,index){
@@ -469,7 +505,7 @@ async function renameSensor(ev,index){
     await fetchLiveData();
     renderChrome();
     renderSensorNamesTable(true);
-  }catch(e){console.warn(e);}finally{setBusy(false);schedulePoll();}
+  }catch(e){console.warn(e);}finally{setBusy(false);resetPollBackoff();schedulePoll();}
 }
 
 document.querySelectorAll('.nav button').forEach(b=>b.addEventListener('click',()=>showPage(b.dataset.page)));
