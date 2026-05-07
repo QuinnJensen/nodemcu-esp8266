@@ -15,10 +15,6 @@ async function fetchLiveData(){
   state.water  = await fetchJson('/api/water');
 }
 
-async function fetchConfig(){
-  state.config = await fetchJson('/api/config');
-}
-
 async function refreshAll(){
   stopPoll();
   try{
@@ -74,21 +70,55 @@ function renderWifi(){
   document.getElementById('page-wifi').innerHTML=`<div class='grid two'><div class='card'><h3>WiFi Status</h3><p><b>Connected:</b> ${fmtBool(!!s.wifi_connected)}</p><p><b>SSID:</b> ${esc(s.ssid||'-')}</p><p><b>IP:</b> <span class='mono'>${esc(s.ip||'-')}</span></p><p><b>RSSI:</b> ${s.rssidbm ?? '-'} dBm</p></div><div class='card'><h3>WiFi Setup</h3><div class='note'>WiFi credentials are still handled by the startup portal in the current firmware layout. This page is reserved for the future always-on WiFi credential editor.</div><p class='footer-note'>That keeps this web UI expansion aligned with your current modules, since WiFi credentials are not yet stored in app_config.</p></div></div>`;
 }
 
-// Renders once per page visit and after a successful save.
-// Background polls skip this entirely to avoid clobbering in-progress edits.
 function renderSettings(){
   if(state.settingsRendered)return;
   state.settingsRendered=true;
   const c=state.config||{};
   const t=state.temps||{};
   const sensors=t.sensors||[];
+  const ledChecked=c.led_enabled?'checked':'';
   document.getElementById('page-settings').innerHTML=
-    `<div class='card' style='grid-column:1/-1'><h3>Sensor Names</h3><p class='muted'>Names are persisted by 64-bit ROM address, so rediscovery keeps the mapping.</p><table class='table'><thead><tr><th>#</th><th>Address</th><th>Current Name</th><th>Rename</th></tr></thead><tbody>${sensors.length ? sensors.map(s=>`<tr><td>${s.index}</td><td class='mono'>${esc(s.address)}</td><td>${esc(s.name)}</td><td><form class='row' onsubmit='renameSensor(event,${s.index})'><input name='name' value='${esc(s.name)}' maxlength='31' style='max-width:220px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:9px 10px'><button class='btn btn-action' type='submit'>Save</button></form></td></tr>`).join('') : `<tr><td colspan='4' class='muted'>No active sensors to rename.</td></tr>`}</tbody></table></div>`+
-    `<div class='grid two' style='grid-column:1/-1'><div class='card'><h3>MQTT &amp; Prometheus</h3><form class='form' onsubmit='saveServices(event)'><div class='field'><label>MQTT host</label><input name='mqtthost' value='${esc(c.mqtthost||'')}'></div><div class='grid two'><div class='field'><label>MQTT port</label><input name='mqttport' type='number' min='1' max='65535' value='${c.mqttport ?? 1883}'></div><div class='field'><label>Prometheus port</label><input name='prometheusport' type='number' min='1' max='65535' value='${c.prometheusport ?? 9111}'></div></div><div class='field'><label>Base topic</label><input name='basetopic' value='${esc(c.basetopic||'')}'></div><div class='field'><label>Device ID</label><input name='deviceid' value='${esc(c.deviceid||'')}'></div><div class='actions'><button class='btn btn-action' type='submit'>Save Services</button></div></form></div><div class='card'><h3>Resolved Topics</h3><p><b>Command:</b><br><span class='mono small'>${esc((c.topics||{}).command||'-')}</span></p><p><b>Status:</b><br><span class='mono small'>${esc((c.topics||{}).status||'-')}</span></p><p><b>Results:</b><br><span class='mono small'>${esc((c.topics||{}).results||'-')}</span></p><p><b>Water:</b><br><span class='mono small'>${esc((c.topics||{}).water||'-')}</span></p><p><b>Metrics URL:</b><br><span class='mono small'>http://${esc((state.status||{}).ip||'0.0.0.0')}:${c.prometheusport ?? 9111}/metrics</span></p></div></div>`;
+    // -- Display & LEDs card --
+    `<div class='card'><h3>Display &amp; LEDs</h3>`+
+    `<div style='display:flex;align-items:center;justify-content:space-between;padding:.5rem 0'>`+
+      `<div><div style='font-size:.9rem'>Blue LED flash</div><div class='small muted'>Flashes on sensor reads when enabled</div></div>`+
+      `<label style='position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0'>`+
+        `<input type='checkbox' id='led-toggle' ${ledChecked} style='opacity:0;width:0;height:0;position:absolute'>`+
+        `<span id='led-slider' style='position:absolute;inset:0;background:${c.led_enabled?'var(--accent)':'#333'};border-radius:24px;cursor:pointer;transition:.2s'>`+
+          `<span id='led-knob' style='position:absolute;width:18px;height:18px;left:${c.led_enabled?'23':'3'}px;bottom:3px;background:${c.led_enabled?'#fff':'#888'};border-radius:50%;transition:.2s'></span>`+
+        `</span>`+
+      `</label>`+
+    `</div>`+
+    `<div class='actions' style='margin-top:.75rem'><button class='btn btn-action' onclick='saveLed()'>Save</button></div>`+
+    `</div>`+
+    // -- Sensor Names card --
+    `<div class='card' style='grid-column:1/-1'><h3>Sensor Names</h3><p class='muted'>Names are persisted by 64-bit ROM address, so rediscovery keeps the mapping.</p><table class='table'><thead><tr><th>#</th><th>Address</th><th>Current Name</th><th>Rename</th></tr></thead><tbody>${sensors.length?sensors.map(s=>`<tr><td>${s.index}</td><td class='mono'>${esc(s.address)}</td><td>${esc(s.name)}</td><td><form class='row' onsubmit='renameSensor(event,${s.index})'><input name='name' value='${esc(s.name)}' maxlength='31' style='max-width:220px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:9px 10px'><button class='btn btn-action' type='submit'>Save</button></form></td></tr>`).join(''):`<tr><td colspan='4' class='muted'>No active sensors to rename.</td></tr>`}</tbody></table></div>`+
+    // -- MQTT & Prometheus card --
+    `<div class='grid two' style='grid-column:1/-1'><div class='card'><h3>MQTT &amp; Prometheus</h3><form class='form' onsubmit='saveServices(event)'><div class='field'><label>MQTT host</label><input name='mqtthost' value='${esc(c.mqtthost||'')}'></div><div class='grid two'><div class='field'><label>MQTT port</label><input name='mqttport' type='number' min='1' max='65535' value='${c.mqttport??1883}'></div><div class='field'><label>Prometheus port</label><input name='prometheusport' type='number' min='1' max='65535' value='${c.prometheusport??9111}'></div></div><div class='field'><label>Base topic</label><input name='basetopic' value='${esc(c.basetopic||'')}'></div><div class='field'><label>Device ID</label><input name='deviceid' value='${esc(c.deviceid||'')}'></div><div class='actions'><button class='btn btn-action' type='submit'>Save Services</button></div></form></div><div class='card'><h3>Resolved Topics</h3><p><b>Command:</b><br><span class='mono small'>${esc((c.topics||{}).command||'-')}</span></p><p><b>Status:</b><br><span class='mono small'>${esc((c.topics||{}).status||'-')}</span></p><p><b>Results:</b><br><span class='mono small'>${esc((c.topics||{}).results||'-')}</span></p><p><b>Water:</b><br><span class='mono small'>${esc((c.topics||{}).water||'-')}</span></p><p><b>Metrics URL:</b><br><span class='mono small'>http://${esc((state.status||{}).ip||'0.0.0.0')}:${c.prometheusport??9111}/metrics</span></p></div></div>`;
+
+  // Animate toggle knob live as checkbox changes
+  const chk=document.getElementById('led-toggle');
+  const slider=document.getElementById('led-slider');
+  const knob=document.getElementById('led-knob');
+  if(chk)chk.addEventListener('change',()=>{
+    slider.style.background=chk.checked?'var(--accent)':'#333';
+    knob.style.left=chk.checked?'23px':'3px';
+    knob.style.background=chk.checked?'#fff':'#888';
+  });
 }
 
-// Call this after a successful save to refresh the page with new values.
 function forceRenderSettings(){state.settingsRendered=false;renderSettings();}
+
+async function saveLed(){
+  const chk=document.getElementById('led-toggle');
+  if(!chk)return;
+  setBusy(true);stopPoll();
+  try{
+    await postForm('/api/config/display',{led_enabled:chk.checked?'1':'0'});
+    state.config=await fetchJson('/api/config');
+    forceRenderSettings();
+  }catch(e){console.warn(e);}finally{setBusy(false);schedulePoll();}
+}
 
 function renderFiles(){
   if(state.filesLoaded)return;
@@ -144,7 +174,7 @@ function renderPages(){
   renderTemps();
   renderWater();
   renderWifi();
-  renderSettings();  // no-op if already rendered and not forced
+  renderSettings();
   showPage(state.page);
 }
 
