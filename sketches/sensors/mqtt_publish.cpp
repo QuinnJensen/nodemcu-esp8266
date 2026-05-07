@@ -25,6 +25,7 @@ void publishAggregateStatus() {
   doc["chipid"]           = String(ESP.getChipId(), HEX);
   doc["mac"]              = WiFi.macAddress();
   doc["online"]           = true;
+  doc["build_version"]    = buildVersion;
 
   // WiFi
   doc["ssid"]             = WiFi.SSID();
