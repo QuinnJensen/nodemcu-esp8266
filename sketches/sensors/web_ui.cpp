@@ -14,6 +14,8 @@
 #include "metrics_server.h"
 #include "util.h"
 #include "display_ui.h"
+#include "console_log.h"
+#include "mqtt_commands.h"
 
 static void sendJsonDoc(JsonDocument& doc) {
   String out;
@@ -125,7 +127,7 @@ void handleApiConfig() {
   sendJsonDoc(doc);
 }
 
-// GET /api/fs/list  -- returns [{name, size}] for every file in LittleFS
+// GET /api/fs/list
 void handleApiFsList() {
   DynamicJsonDocument doc(2048);
   JsonArray files = doc.createNestedArray("files");
@@ -144,7 +146,7 @@ void handleApiFsList() {
   sendJsonDoc(doc);
 }
 
-// GET /api/fs/file?path=/foo.txt  -- streams raw file as plain text
+// GET /api/fs/file?path=/foo.txt
 void handleApiFsFile() {
   if (!webServer.hasArg("path")) { sendError("missing path"); return; }
   String path = webServer.arg("path");
@@ -155,6 +157,81 @@ void handleApiFsFile() {
   webServer.streamFile(f, "text/plain; charset=utf-8");
   f.close();
   yield();
+}
+
+// ── Console API ──────────────────────────────────────────────────────────────
+
+// GET /api/console/log?after=<seq>
+void handleApiConsoleLog() {
+  uint32_t afterSeq = 0;
+  if (webServer.hasArg("after"))
+    afterSeq = (uint32_t)webServer.arg("after").toInt();
+
+  DynamicJsonDocument doc(10240);
+  JsonArray entries = doc.createNestedArray("entries");
+  uint32_t latestSeq = appendConsoleLogJson(entries, afterSeq);
+  doc["seq"] = latestSeq;
+  sendJsonDoc(doc);
+}
+
+// POST /api/console/command  body: cmd=<text>
+// /slash commands are handled here; raw JSON is forwarded to handleCommandJson().
+void handlePostConsoleCommand() {
+  if (!webServer.hasArg("cmd")) { sendError("missing cmd"); return; }
+  String cmd = webServer.arg("cmd");
+  cmd.trim();
+  if (!cmd.length()) { sendError("empty command"); return; }
+
+  consoleLog(CLOG_RX, ("[console] " + cmd).c_str());
+
+  if (cmd.startsWith("/")) {
+    if (cmd.equalsIgnoreCase("/help")) {
+      consoleLog(CLOG_INFO, "Sensor Node Console \xe2\x80\x94 available commands:");
+      consoleLog(CLOG_INFO, "  /help    \xe2\x80\x94 show this message");
+      consoleLog(CLOG_INFO, "  /status  \xe2\x80\x94 log current node status");
+      consoleLog(CLOG_INFO, "  /scan    \xe2\x80\x94 trigger a 1-Wire bus scan");
+      consoleLog(CLOG_INFO, "  /water   \xe2\x80\x94 trigger a water probe sample");
+      consoleLog(CLOG_INFO, "  /clear   \xe2\x80\x94 clear the console display (UI only)");
+      consoleLog(CLOG_INFO, "MQTT JSON commands (forwarded to MQTT command handler):");
+      consoleLog(CLOG_INFO, "  {\"command\":\"scan\"}   \xe2\x80\x94 scan bus + publish all sensor data");
+      consoleLog(CLOG_INFO, "  {\"command\":\"status\"} \xe2\x80\x94 alias for scan");
+      consoleLog(CLOG_INFO, "  {\"command\":\"water\"}  \xe2\x80\x94 trigger water probe publish");
+      sendOk("help sent");
+      return;
+    }
+    if (cmd.equalsIgnoreCase("/status")) {
+      consoleLog(CLOG_INFO, (String("[status] heap=") + ESP.getFreeHeap() +
+                             " uptime=" + (millis()/1000) + "s" +
+                             " mqtt=" + (mqtt.connected() ? "up" : "down") +
+                             " wifi=" + (WiFi.status()==WL_CONNECTED ? "up" : "down")).c_str());
+      sendOk("status logged");
+      return;
+    }
+    if (cmd.equalsIgnoreCase("/scan")) {
+      webRequestSensorScan = true;
+      consoleLog(CLOG_INFO, "[scan] Bus scan queued.");
+      sendOk("scan queued");
+      return;
+    }
+    if (cmd.equalsIgnoreCase("/water")) {
+      webRequestWaterSample = true;
+      consoleLog(CLOG_INFO, "[water] Probe sample queued.");
+      sendOk("water queued");
+      return;
+    }
+    if (cmd.equalsIgnoreCase("/clear")) {
+      // Handled entirely in the browser; firmware just acks.
+      sendOk("clear");
+      return;
+    }
+    consoleLog(CLOG_WARN, ("Unknown command: " + cmd).c_str());
+    sendError(("Unknown command: " + cmd).c_str());
+    return;
+  }
+
+  // Raw JSON -> deferred dispatch via handleCommandJson()
+  webConsoleCommandPending = cmd;
+  sendOk("command queued");
 }
 
 void handleApiScanSensors() {
@@ -232,6 +309,7 @@ void startMainWebUi() {
   webServer.on("/api/config",          HTTP_GET,  handleApiConfig);
   webServer.on("/api/fs/list",         HTTP_GET,  handleApiFsList);
   webServer.on("/api/fs/file",         HTTP_GET,  handleApiFsFile);
+  webServer.on("/api/console/log",     HTTP_GET,  handleApiConsoleLog);
 
   webServer.on("/api/sensors/scan",    HTTP_POST, handleApiScanSensors);
   webServer.on("/api/water/sample",    HTTP_POST, handleApiSampleWater);
@@ -239,6 +317,7 @@ void startMainWebUi() {
   webServer.on("/api/config/water",    HTTP_POST, handlePostWaterConfig);
   webServer.on("/api/sensors/rename",  HTTP_POST, handlePostSensorRename);
   webServer.on("/api/config/display",  HTTP_POST, handlePostDisplayConfig);
+  webServer.on("/api/console/command", HTTP_POST, handlePostConsoleCommand);
 
   webServer.onNotFound([]() {
     if (webServer.uri().startsWith("/api/")) { sendError("not found", 404); return; }
@@ -273,6 +352,11 @@ void serviceDeferredWebActions() {
   }
   if (webRequestWaterSample) {
     webRequestWaterSample = false;
-    beginWaterSample();   // non-blocking; state machine drives it from here
+    beginWaterSample();
+  }
+  if (webConsoleCommandPending.length()) {
+    String cmd = webConsoleCommandPending;
+    webConsoleCommandPending = "";
+    handleCommandJson(cmd);
   }
 }

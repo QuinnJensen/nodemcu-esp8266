@@ -65,13 +65,14 @@ extern uint16_t waterAdcRaw;
 extern uint8_t waterLevelIndex;
 extern bool waterValid;
 extern bool waterProbePresent;
-extern bool waterProbing;   // true while sampleWaterLevel() measurement is running
+extern bool waterProbing;
 
 extern bool startupDisplayActive;
 extern unsigned long startupDisplayUntilMs;
 
 extern volatile bool webRequestSensorScan;
 extern volatile bool webRequestWaterSample;
+extern String webConsoleCommandPending;  // raw JSON queued from /api/console/command
 
 // Build version stamp: "YYYYMMDD-HHmmss-abcdef" injected at compile time
 extern const char* buildVersion;

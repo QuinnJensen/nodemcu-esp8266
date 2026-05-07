@@ -64,3 +64,4 @@ unsigned long startupDisplayUntilMs = 0;
 
 volatile bool webRequestSensorScan   = false;
 volatile bool webRequestWaterSample  = false;
+String webConsoleCommandPending      = "";

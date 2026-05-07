@@ -10,13 +10,16 @@
 #include "util.h"
 #include "mqtt_client.h"
 #include "display_ui.h"
+#include "console_log.h"
 
 void publishAggregateStatus() {
   Serial.print("heartbeat: mqtt connected=");
   Serial.println(mqtt.connected());
-  if (!mqtt.connected()) return;
+  if (!mqtt.connected()) {
+    consoleLog(CLOG_WARN, "[TX] publishAggregateStatus: MQTT not connected, skipping.");
+    return;
+  }
 
-  // static: keeps this off the stack (ESP8266 has only ~4KB total stack)
   static StaticJsonDocument<2048> doc;
   doc.clear();
 
@@ -27,18 +30,15 @@ void publishAggregateStatus() {
   doc["online"]           = true;
   doc["build_version"]    = buildVersion;
 
-  // WiFi
   doc["ssid"]             = WiFi.SSID();
   doc["rssidbm"]          = WiFi.RSSI();
   doc["ip"]               = ipToString(WiFi.localIP());
 
-  // System
   doc["freeheap"]         = ESP.getFreeHeap();
   doc["uptime_s"]         = millis() / 1000UL;
   doc["mqttpublishcount"] = mqttPublishCount;
   doc["prometheusport"]   = config.prometheusPort;
 
-  // Sensor bus
   doc["sensorcount"]      = sensorCount;
   doc["simulated"]        = useFakeSensors;
   doc["networkdetected"]  = sensorNetworkDetected;
@@ -64,8 +64,14 @@ void publishAggregateStatus() {
   Serial.print("[MQTT] aggregate doc size=");
   Serial.println(measureJson(doc));
 
-  if (publishJsonDocToTopic(statusTopic, doc, false))
+  if (publishJsonDocToTopic(statusTopic, doc, false)) {
     setStatusMessage("publishing agg", 1500);
+    consoleLog(CLOG_TX, (String("[TX] aggregate → ") + statusTopic +
+                         " sensors=" + sensorCount +
+                         " heap=" + ESP.getFreeHeap()).c_str());
+  } else {
+    consoleLog(CLOG_WARN, "[TX] aggregate status publish failed.");
+  }
 }
 
 void publishPerSensorStatus(uint8_t i) {
@@ -98,6 +104,12 @@ void publishPerSensorStatus(uint8_t i) {
   if (!publishJsonDocToTopic(topic.c_str(), doc, false)) {
     Serial.print("[MQTT] per-sensor publish failed index=");
     Serial.println(i + 1);
+    consoleLog(CLOG_WARN, (String("[TX] per-sensor failed: ") + sensorNames[i]).c_str());
+  } else {
+    String reading = sensorPresent[i] && !isnan(sensorTempsC[i])
+      ? String(sensorTempsC[i], 1) + "\xc2\xb0" "C"
+      : String(sensorPresent[i] ? "-" : "disconnected");
+    consoleLog(CLOG_TX, (String("[TX] sensor/") + sensorNames[i] + " " + reading).c_str());
   }
 }
 
@@ -107,7 +119,10 @@ void publishPerSensorStatuses() {
 }
 
 void publishWaterStatus() {
-  if (!mqtt.connected()) return;
+  if (!mqtt.connected()) {
+    consoleLog(CLOG_WARN, "[TX] publishWaterStatus: MQTT not connected.");
+    return;
+  }
 
   static StaticJsonDocument<512> doc;
   doc.clear();
@@ -121,8 +136,12 @@ void publishWaterStatus() {
 
   appendWaterToJson(doc);
 
-  if (!publishJsonDocToTopic(waterTopic, doc, false))
+  if (!publishJsonDocToTopic(waterTopic, doc, false)) {
     Serial.println("[MQTT] water publish failed");
+    consoleLog(CLOG_WARN, "[TX] water status publish failed.");
+  } else {
+    consoleLog(CLOG_TX, (String("[TX] water → ") + waterTopic).c_str());
+  }
 }
 
 void publishCommandResult(const char* type, bool ok, const char* msg) {
@@ -136,15 +155,22 @@ void publishCommandResult(const char* type, bool ok, const char* msg) {
   reply["ok"]      = ok;
   reply["message"] = msg ? msg : "";
 
-  if (!publishJsonDocToTopic(resultsTopic, reply, false))
+  if (!publishJsonDocToTopic(resultsTopic, reply, false)) {
     Serial.println("[MQTT] command result publish failed");
+    consoleLog(CLOG_WARN, "[TX] command result publish failed.");
+  } else {
+    consoleLog(CLOG_TX, (String("[TX] result/") + (type ? type : "result") +
+                         " ok=" + (ok ? "true" : "false")).c_str());
+  }
 }
 
 void initialSampleAndPublish() {
+  consoleLog(CLOG_INFO, "Boot: initial sample and publish starting.");
   scanSensors(true);
   readTemperatures();
-  beginWaterSample();   // non-blocking; publishWaterStatus() fires on completion
+  beginWaterSample();
   publishAggregateStatus();
   publishPerSensorStatuses();
   mqttOnlinePublished = true;
+  consoleLog(CLOG_INFO, "Boot: initial publish complete.");
 }
