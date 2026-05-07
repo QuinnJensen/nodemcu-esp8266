@@ -6,11 +6,13 @@
 #include "app_config.h"
 #include "util.h"
 
-static MqttClientDisplay sDisplay;
-static MqttMessageHandler sMessageHandler = nullptr;
+static MqttClientDisplay    sDisplay;
+static MqttMessageHandler   sMessageHandler   = nullptr;
+static MqttConnectedHandler sConnectedHandler = nullptr;
 
 void setMqttClientDisplayCallbacks(const MqttClientDisplay& cb) { sDisplay = cb; }
-void setMqttMessageHandler(MqttMessageHandler handler) { sMessageHandler = handler; }
+void setMqttMessageHandler(MqttMessageHandler handler)          { sMessageHandler   = handler; }
+void setMqttConnectedHandler(MqttConnectedHandler handler)      { sConnectedHandler = handler; }
 
 static void _kickSpinner(unsigned long durationMs = 1500) {
   if (sDisplay.kickSpinner) sDisplay.kickSpinner(durationMs);
@@ -65,8 +67,8 @@ bool mqttConnect() {
   String clientId = "temp-network-" + sanitizeTopicPart(safeDeviceId()) + "-" + String(ESP.getChipId(), HEX);
 
   StaticJsonDocument<160> willDoc;
-  willDoc["type"] = "status";
-  willDoc["id"] = safeDeviceId();
+  willDoc["type"]   = "status";
+  willDoc["id"]     = safeDeviceId();
   willDoc["online"] = false;
   char willPayload[160];
   size_t willLen = 0;
@@ -77,13 +79,13 @@ bool mqttConnect() {
 
   _setStatus("connecting brkr", 2000);
   Serial.println("[MQTT] connect attempt");
-  Serial.print("[MQTT] host: "); Serial.println(config.mqttHost);
-  Serial.print("[MQTT] port: "); Serial.println(config.mqttPort);
+  Serial.print("[MQTT] host: ");   Serial.println(config.mqttHost);
+  Serial.print("[MQTT] port: ");   Serial.println(config.mqttPort);
   Serial.print("[MQTT] client: "); Serial.println(clientId);
 
   bool ok = mqtt.connect(clientId.c_str(), nullptr, nullptr, statusTopic, 0, true, willPayload);
   Serial.print("[MQTT] result: "); Serial.println(ok ? "ok" : "fail");
-  Serial.print("[MQTT] state: "); Serial.println(mqtt.state());
+  Serial.print("[MQTT] state: ");  Serial.println(mqtt.state());
 
   if (!ok) { _setStatus("broker conn fail", 2000); return false; }
 
@@ -92,6 +94,10 @@ bool mqttConnect() {
   if (!subOk) { _setStatus("cmd sub failed", 2000); mqtt.disconnect(); return false; }
 
   _setStatus("broker connected", 2000);
+
+  // Notify sketch -- fires initialSampleAndPublish equivalent with real data
+  if (sConnectedHandler) sConnectedHandler();
+
   return true;
 }
 

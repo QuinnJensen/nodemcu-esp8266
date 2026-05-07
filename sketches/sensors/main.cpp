@@ -19,6 +19,18 @@
 #include "scheduler.h"
 #include "mqtt_commands.h"
 
+// Called by lib/shared/mqtt_client immediately after successful broker connect+subscribe
+static void onMqttConnected() {
+  // Do a forced scan + blocking read so first retained publish has real data
+  scanSensors(true);
+  readTemperatures();
+  sampleWaterLevel();
+  publishAggregateStatus(true);
+  publishPerSensorStatuses(true);
+  publishWaterStatus(true);
+  mqttOnlinePublished = true;
+}
+
 // MQTT message router -- called by lib/shared/mqtt_client on every received message
 static void onMqttMessage(const String& topic, const String& payload) {
   lastRxRaw = payload;
@@ -49,8 +61,9 @@ void setup() {
     setMqttClientDisplayCallbacks(mqCb);
   }
 
-  // Route incoming MQTT messages to sketch handler
+  // Route incoming MQTT messages and connect event to sketch handlers
   setMqttMessageHandler(onMqttMessage);
+  setMqttConnectedHandler(onMqttConnected);
 
   if (!LittleFS.begin()) setStatusMessage("LittleFS fail", 3000);
 
@@ -67,14 +80,15 @@ void setup() {
   startMainWebUi();
   startMetricsServer();
   startMqttIfWifiReady();
-  initialSampleAndPublish();
+  // NOTE: no initialSampleAndPublish() here -- MQTT not connected yet.
+  // onMqttConnected() fires automatically after first successful broker connect.
 }
 
 void loop() {
   serviceWifiPortal();
   serviceMainWebUi();
   serviceMetricsServer();
-  serviceMqttClient();
+  serviceMqttClient();   // calls mqttConnect() -> fires onMqttConnected() on success
   serviceDeferredWebActions();
   runScheduledTasks();
   updateDisplayUi();
