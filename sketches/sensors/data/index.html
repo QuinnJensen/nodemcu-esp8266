@@ -321,6 +321,8 @@ function renderChrome(){
   if(hb) hb.style.opacity=backed?'0.65':'1';
   const vb=document.getElementById('badge-version');
   if(vb && s.build_version) vb.textContent=s.build_version;
+  const tc=document.getElementById('tz-current');
+  if(tc && s.timestamp) tc.textContent=s.timestamp;
 }
 
 // ── dashboard sensor list helpers ────────────────────────────────────────────
@@ -506,6 +508,17 @@ function renderSettings(){
         `</label>`+
       `</div>`+
       `<div class='actions' style='margin-top:.75rem'><button class='btn btn-action' onclick='saveLed()'>Save</button></div>`+
+    `</div>`+
+    `<div class='card'>`+
+      `<h3>Timezone</h3>`+
+      `<p class='muted small'>POSIX TZ string. Used for the OLED clock, MQTT timestamps, and console log times. Default: <span class='mono'>MDT7MST,M3.2.0,M11.1.0</span>.</p>`+
+      `<form class='form' onsubmit='saveTimezone(event)'>`+
+        `<div class='field'><label>TZ string</label>`+
+          `<input name='timezone' id='tz-input' value='${esc(c.timezone||'MDT7MST,M3.2.0,M11.1.0')}' maxlength='39' spellcheck='false'>`+
+        `</div>`+
+        `<p class='small muted' style='margin:0'>Current device time: <span class='mono' id='tz-current'>${esc((state.status||{}).timestamp||'—')}</span></p>`+
+        `<div class='actions'><button class='btn btn-action' type='submit'>Save Timezone</button></div>`+
+      `</form>`+
     `</div>`;
 
   const chk=document.getElementById('led-toggle');
@@ -523,6 +536,22 @@ function forceRenderSettings(){
   snapshotConfig();
   state.settingsRendered=false;
   renderSettings();
+}
+
+async function saveTimezone(ev){
+  ev.preventDefault();
+  const inp=document.getElementById('tz-input');
+  if(!inp) return;
+  const tz=(inp.value||'').trim();
+  if(!tz) return;
+  setBusy(true);stopPoll();
+  try{
+    const r=await postForm('/api/config/time',{timezone:tz});
+    if(!r.ok){const t=await r.text();console.warn('tz save failed',t);}
+    state.config=await fetchJson('/api/config');
+    snapshotConfig();
+    forceRenderSettings();
+  }catch(e){console.warn(e);}finally{setBusy(false);resetPollBackoff();schedulePoll();}
 }
 
 async function saveLed(){
@@ -604,7 +633,7 @@ function renderConsole(){
       `</form>`+
       `<div class='console-meta'>`+
         `<span id='console-status' class='small muted'>idle</span>`+
-        `<span class='small muted'>buffer: 48 entries</span>`+
+        `<span class='small muted'>buffer: 32 entries</span>`+
       `</div>`+
     `</div>`;
   document.getElementById('console-clear-btn').addEventListener('click',clearConsoleDisplay);
@@ -658,8 +687,15 @@ function consoleAppendEntries(entries){
     const div=document.createElement('div');
     const cls=(e.type||'info').toLowerCase();
     div.className='clog-line '+cls;
-    const ts=Math.floor((e.uptime_ms||0)/1000);
-    const tsTxt=String(Math.floor(ts/60)).padStart(3,'0')+':'+String(ts%60).padStart(2,'0');
+    // Device-formatted local-time HH:MM:SS when wall-clock is up,
+    // otherwise fall back to uptime-derived MMM:SS.
+    let tsTxt;
+    if(e.local){
+      tsTxt=e.local;
+    } else {
+      const ts=Math.floor((e.uptime_ms||0)/1000);
+      tsTxt='+'+String(Math.floor(ts/60)).padStart(3,'0')+':'+String(ts%60).padStart(2,'0');
+    }
     div.innerHTML=`<span class='ts'>${tsTxt}</span><span class='tag'>${esc(cls)}</span><span class='msg'>${esc(e.msg||'')}</span>`;
     frag.appendChild(div);
   }

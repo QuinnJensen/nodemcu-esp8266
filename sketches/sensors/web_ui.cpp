@@ -73,6 +73,9 @@ void handleApiStatus() {
   doc["last_status"]     = lastStatusMsg;
   doc["last_rx_type"]    = lastRxType;
   doc["build_version"]   = buildVersion;
+  doc["timezone"]        = config.timezone;
+  String ts = currentTimestampString();
+  if (ts.length()) doc["timestamp"] = ts;
   appendWaterToJson(doc);
   sendJsonDoc(doc);
 }
@@ -112,6 +115,7 @@ void handleApiConfig() {
   doc["deviceid"]       = safeDeviceId();
   doc["prometheusport"] = config.prometheusPort;
   doc["led_enabled"]    = config.ledEnabled;
+  doc["timezone"]       = config.timezone;
 
   JsonObject water = doc.createNestedObject("water");
   water["intervalms"] = config.waterHeartbeatIntervalMs;
@@ -167,15 +171,34 @@ void handleApiConsoleLog() {
   if (webServer.hasArg("after"))
     afterSeq = (uint32_t)webServer.arg("after").toInt();
 
-  DynamicJsonDocument doc(10240);
+  // 32 ring entries * (uptime_ms + epoch_s + local HH:MM:SS + 256-char msg + seq + type)
+  // serializes to ~12 KB worst-case. ESP8266 free heap at idle is ~25 KB so this
+  // is safe; pass a custom Allocator if heap pressure becomes a problem.
+  DynamicJsonDocument doc(13312);
   JsonArray entries = doc.createNestedArray("entries");
   uint32_t latestSeq = appendConsoleLogJson(entries, afterSeq);
   doc["seq"] = latestSeq;
   sendJsonDoc(doc);
 }
 
+// Known bare-word commands that map to the MQTT command JSON dispatcher.
+// Keeping the list explicit (instead of pass-through) so unknown words still
+// produce a clear "unknown" reply without silently building bogus JSON.
+static bool isShorthandCommand(const String& word) {
+  return word.equalsIgnoreCase("scan")
+      || word.equalsIgnoreCase("status")
+      || word.equalsIgnoreCase("heartbeat")
+      || word.equalsIgnoreCase("water")
+      || word.equalsIgnoreCase("waterstatus");
+}
+
 // POST /api/console/command  body: cmd=<text>
-// /slash commands are handled here; raw JSON is forwarded to handleCommandJson().
+// Accepts:
+//   /help, /status, /clear      -- handled here (UI/info only)
+//   bare word (scan, water, ..) -- expanded to {"command":"<word>"}
+//   raw JSON                    -- passed straight to handleCommandJson()
+// In every case the payload that ends up dispatched goes through
+// handleCommandJson() so behavior stays centralized with the MQTT path.
 void handlePostConsoleCommand() {
   if (!webServer.hasArg("cmd")) { sendError("missing cmd"); return; }
   String cmd = webServer.arg("cmd");
@@ -189,13 +212,14 @@ void handlePostConsoleCommand() {
       consoleLog(CLOG_INFO, "Sensor Node Console \xe2\x80\x94 available commands:");
       consoleLog(CLOG_INFO, "  /help    \xe2\x80\x94 show this message");
       consoleLog(CLOG_INFO, "  /status  \xe2\x80\x94 log current node status");
-      consoleLog(CLOG_INFO, "  /scan    \xe2\x80\x94 trigger a 1-Wire bus scan");
-      consoleLog(CLOG_INFO, "  /water   \xe2\x80\x94 trigger a water probe sample");
       consoleLog(CLOG_INFO, "  /clear   \xe2\x80\x94 clear the console display (UI only)");
-      consoleLog(CLOG_INFO, "MQTT JSON commands (forwarded to MQTT command handler):");
-      consoleLog(CLOG_INFO, "  {\"command\":\"scan\"}   \xe2\x80\x94 scan bus + publish all sensor data");
-      consoleLog(CLOG_INFO, "  {\"command\":\"status\"} \xe2\x80\x94 alias for scan");
-      consoleLog(CLOG_INFO, "  {\"command\":\"water\"}  \xe2\x80\x94 trigger water probe publish");
+      consoleLog(CLOG_INFO, "Shorthand commands (run via the MQTT command handler):");
+      consoleLog(CLOG_INFO, "  scan        \xe2\x80\x94 scan bus + publish all sensor data");
+      consoleLog(CLOG_INFO, "  status      \xe2\x80\x94 alias for scan");
+      consoleLog(CLOG_INFO, "  heartbeat   \xe2\x80\x94 alias for scan");
+      consoleLog(CLOG_INFO, "  water       \xe2\x80\x94 trigger water probe + publish");
+      consoleLog(CLOG_INFO, "  waterstatus \xe2\x80\x94 alias for water");
+      consoleLog(CLOG_INFO, "Or paste the raw JSON form, e.g. {\"command\":\"scan\"}.");
       sendOk("help sent");
       return;
     }
@@ -207,25 +231,29 @@ void handlePostConsoleCommand() {
       sendOk("status logged");
       return;
     }
-    if (cmd.equalsIgnoreCase("/scan")) {
-      webRequestSensorScan = true;
-      consoleLog(CLOG_INFO, "[scan] Bus scan queued.");
-      sendOk("scan queued");
-      return;
-    }
-    if (cmd.equalsIgnoreCase("/water")) {
-      webRequestWaterSample = true;
-      consoleLog(CLOG_INFO, "[water] Probe sample queued.");
-      sendOk("water queued");
-      return;
-    }
     if (cmd.equalsIgnoreCase("/clear")) {
       // Handled entirely in the browser; firmware just acks.
       sendOk("clear");
       return;
     }
+    // Backwards-compat: /scan and /water still work, but they expand to the
+    // shorthand form so they take the same path everything else does.
+    if (cmd.equalsIgnoreCase("/scan") || cmd.equalsIgnoreCase("/water")) {
+      String word = cmd.substring(1);
+      webConsoleCommandPending = String("{\"command\":\"") + word + "\"}";
+      sendOk("command queued");
+      return;
+    }
     consoleLog(CLOG_WARN, ("Unknown command: " + cmd).c_str());
     sendError(("Unknown command: " + cmd).c_str());
+    return;
+  }
+
+  // Bare-word shorthand: expand into the JSON form and dispatch through the
+  // shared MQTT command handler so behavior stays identical to the wire form.
+  if (cmd.indexOf('{') < 0 && cmd.indexOf(' ') < 0 && isShorthandCommand(cmd)) {
+    webConsoleCommandPending = String("{\"command\":\"") + cmd + "\"}";
+    sendOk("command queued");
     return;
   }
 
@@ -289,6 +317,18 @@ void handlePostSensorRename() {
   sendOk("sensor renamed");
 }
 
+void handlePostTimeConfig() {
+  if (!webServer.hasArg("timezone")) { sendError("missing timezone"); return; }
+  String tz = webServer.arg("timezone");
+  tz.trim();
+  if (!tz.length()) { sendError("timezone empty"); return; }
+  if (!setTimezoneValue(tz.c_str())) { sendError("invalid timezone"); return; }
+  saveConfig();
+  setStatusMessage("tz saved", 1500);
+  consoleLog(CLOG_INFO, (String("[cfg] timezone -> ") + config.timezone).c_str());
+  sendOk("timezone saved");
+}
+
 void handlePostDisplayConfig() {
   if (!webServer.hasArg("led_enabled")) { sendError("missing led_enabled"); return; }
   String val = webServer.arg("led_enabled");
@@ -317,6 +357,7 @@ void startMainWebUi() {
   webServer.on("/api/config/water",    HTTP_POST, handlePostWaterConfig);
   webServer.on("/api/sensors/rename",  HTTP_POST, handlePostSensorRename);
   webServer.on("/api/config/display",  HTTP_POST, handlePostDisplayConfig);
+  webServer.on("/api/config/time",     HTTP_POST, handlePostTimeConfig);
   webServer.on("/api/console/command", HTTP_POST, handlePostConsoleCommand);
 
   webServer.onNotFound([]() {

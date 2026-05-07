@@ -46,7 +46,8 @@ String currentTimestampString() {
 
 void setupTimeHelpers() {
   configTime(0, 0, "pool.ntp.org", "time.nist.gov");
-  setenv("TZ", devicetz, 1);
+  const char* tz = (config.timezone[0] ? config.timezone : devicetz);
+  setenv("TZ", tz, 1);
   tzset();
   timeConfigured = true;
 }

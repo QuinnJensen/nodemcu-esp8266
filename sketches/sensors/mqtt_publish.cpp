@@ -66,11 +66,6 @@ void publishAggregateStatus() {
 
   if (publishJsonDocToTopic(statusTopic, doc, false)) {
     setStatusMessage("publishing agg", 1500);
-    consoleLog(CLOG_TX, (String("[TX] aggregate → ") + statusTopic +
-                         " sensors=" + sensorCount +
-                         " heap=" + ESP.getFreeHeap()).c_str());
-  } else {
-    consoleLog(CLOG_WARN, "[TX] aggregate status publish failed.");
   }
 }
 
@@ -104,12 +99,6 @@ void publishPerSensorStatus(uint8_t i) {
   if (!publishJsonDocToTopic(topic.c_str(), doc, false)) {
     Serial.print("[MQTT] per-sensor publish failed index=");
     Serial.println(i + 1);
-    consoleLog(CLOG_WARN, (String("[TX] per-sensor failed: ") + sensorNames[i]).c_str());
-  } else {
-    String reading = sensorPresent[i] && !isnan(sensorTempsC[i])
-      ? String(sensorTempsC[i], 1) + "\xc2\xb0" "C"
-      : String(sensorPresent[i] ? "-" : "disconnected");
-    consoleLog(CLOG_TX, (String("[TX] sensor/") + sensorNames[i] + " " + reading).c_str());
   }
 }
 
@@ -138,9 +127,6 @@ void publishWaterStatus() {
 
   if (!publishJsonDocToTopic(waterTopic, doc, false)) {
     Serial.println("[MQTT] water publish failed");
-    consoleLog(CLOG_WARN, "[TX] water status publish failed.");
-  } else {
-    consoleLog(CLOG_TX, (String("[TX] water → ") + waterTopic).c_str());
   }
 }
 
@@ -157,10 +143,6 @@ void publishCommandResult(const char* type, bool ok, const char* msg) {
 
   if (!publishJsonDocToTopic(resultsTopic, reply, false)) {
     Serial.println("[MQTT] command result publish failed");
-    consoleLog(CLOG_WARN, "[TX] command result publish failed.");
-  } else {
-    consoleLog(CLOG_TX, (String("[TX] result/") + (type ? type : "result") +
-                         " ok=" + (ok ? "true" : "false")).c_str());
   }
 }
 
