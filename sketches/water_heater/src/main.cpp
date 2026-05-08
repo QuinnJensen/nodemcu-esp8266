@@ -89,7 +89,7 @@ void setup() {
   loadCalibration();
   initMqttClient();
 
-  runStartupPortalIfNeeded();
+  runStartupPortalIfNeeded("heat");
 
   startMainWebUi();
   startMetricsServer();

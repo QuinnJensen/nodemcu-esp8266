@@ -13,9 +13,9 @@ struct WifiPortalDisplay {
 
 void setWifiPortalDisplayCallbacks(const WifiPortalDisplay& cb);
 
-void runStartupPortalIfNeeded();
+void runStartupPortalIfNeeded(const char* ssidSuffix);
 void serviceWifiPortal();
 bool forcePortalRequested();
 bool startupReconfigRequested();
-void startPortalAndConnect(bool forcePortal);
+void startPortalAndConnect(bool forcePortal, const char* ssidSuffix);
 void saveConfigCallback();

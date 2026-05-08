@@ -27,13 +27,19 @@ void saveConfigCallback() {
   shouldSaveConfig = true;
 }
 
-void startPortalAndConnect(bool forcePortal) {
+void startPortalAndConnect(bool forcePortal, const char* ssidSuffix) {
   WiFiManager wm;
   wm.setSaveConfigCallback(saveConfigCallback);
   wm.setClass("invert");
   wm.setDarkMode(true);
   wm.setConfigPortalTimeout(portaltimeoutsec);
   if (forcePortal) wm.resetSettings();
+
+  uint8_t mac[6];
+  WiFi.macAddress(mac);
+  char ssid[32];
+  snprintf(ssid, sizeof(ssid), "esp%02X%02X-%s", mac[4], mac[5], ssidSuffix);
+
   char mqttPortBuf[8];
   char promPortBuf[8];
   snprintf(mqttPortBuf, sizeof(mqttPortBuf), "%u", config.mqttPort);
@@ -51,8 +57,8 @@ void startPortalAndConnect(bool forcePortal) {
   portalActive = true;
   _showPortal();
   bool ok;
-  if (forcePortal) ok = wm.startConfigPortal("TempSensorSetup");
-  else ok = wm.autoConnect("TempSensorSetup");
+  if (forcePortal) ok = wm.startConfigPortal(ssid);
+  else ok = wm.autoConnect(ssid);
   portalActive = false;
   if (!ok) {
     _setStatus("portal timeout", 2000);
@@ -126,15 +132,15 @@ void ensureWiFi() {
   }
 }
 
-void runStartupPortalIfNeeded() {
+void runStartupPortalIfNeeded(const char* ssidSuffix) {
   bool forcePortal = forcePortalRequested() || startupReconfigRequested();
   if (forcePortal) {
     _showPortal();
     startupDisplayActive = true;
     startupDisplayUntilMs = millis() + 600000UL;
-    startPortalAndConnect(true);
+    startPortalAndConnect(true, ssidSuffix);
   } else {
-    startPortalAndConnect(false);
+    startPortalAndConnect(false, ssidSuffix);
   }
 }
 

@@ -89,7 +89,7 @@ void setup() {
   loadCodes();
 
   initMqttClient();
-  runStartupPortalIfNeeded();
+  runStartupPortalIfNeeded("uhf");
 
   startMainWebUi();
   startMetricsServer();

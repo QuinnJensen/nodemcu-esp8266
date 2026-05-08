@@ -84,7 +84,7 @@ void setup() {
   loadSensorNames();
   initMqttClient();
 
-  runStartupPortalIfNeeded();
+  runStartupPortalIfNeeded("sens");
 
   startMainWebUi();
   startMetricsServer();
