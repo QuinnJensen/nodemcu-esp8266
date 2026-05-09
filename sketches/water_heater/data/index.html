@@ -145,13 +145,10 @@ function renderDashboard(){const s=state.status||{};const pct=s.power_percent??0
       `<div class='card'><h3>Status</h3><p><b>SSID:</b> ${esc(s.ssid||'-')}</p><p><b>IP:</b> <span class='mono'>${esc(s.ip||'-')}</span></p><p><b>Calibrated:</b> ${s.calibration_enabled?'yes':'no'}</p><p><b>Last cmd:</b> ${s.seconds_since_last_command??0}s ago</p></div>`+
       `<div class='card'><h3>Quick Set</h3>`+
         `<div style='display:flex;flex-wrap:wrap;gap:8px'>`+[0,10,25,50,75,100].map(p=>`<button class='btn secondary' onclick='setPower(${p})' style='flex:1;min-width:60px'>${p}%</button>`).join('')+`</div>`+
-        `<form onsubmit='return setPowerForm(event)' style='margin-top:14px'>`+
-          `<div class='field'>`+
-            `<div style='display:flex;justify-content:space-between;align-items:center'><label>Custom Level</label><b id='dash-pct-val' style='color:var(--accent)'>${pct}%</b></div>`+
-            `<input type='range' min='0' max='100' name='percent' value='${pct}' oninput='document.getElementById("dash-pct-val").textContent=this.value+"%"' style='width:100%;margin:8px 0;accent-color:var(--accent)'>`+
-          `</div>`+
-          `<button class='btn' type='submit'>Apply</button>`+
-        `</form>`+
+        `<div class='field' style='margin-top:14px'>`+
+          `<div style='display:flex;justify-content:space-between;align-items:center'><label>Custom Level</label><b id='dash-pct-val' style='color:var(--accent)'>${pct}%</b></div>`+
+          `<input type='range' min='0' max='100' value='${pct}' oninput='document.getElementById("dash-pct-val").textContent=this.value+"%"' onchange='setPower(this.value)' style='width:100%;margin:8px 0;accent-color:var(--accent)'>`+
+        `</div>`+
       `</div>`+
     `</div>`;
 }
@@ -163,16 +160,13 @@ function renderControl(){
   document.getElementById('page-control').innerHTML=
     `<div class='card'><h3>Heater Control</h3>`+
       `<div class='bar-wrap' style='height:24px'><div class='bar-fill' style='width:${pct}%'></div></div>`+
-      `<form onsubmit='return setPowerForm(event)'>`+
-        `<div class='field'>`+
-          `<div style='display:flex;justify-content:space-between;align-items:center'>`+
-            `<label>Power Output</label>`+
-            `<b id='ctrl-pct-val' style='font-size:20px;color:var(--accent)'>${pct}%</b>`+
-          `</div>`+
-          `<input type='range' min='0' max='100' name='percent' value='${pct}' oninput='document.getElementById("ctrl-pct-val").textContent=this.value+"%"' style='width:100%;margin:12px 0;accent-color:var(--accent)'>`+
+      `<div class='field'>`+
+        `<div style='display:flex;justify-content:space-between;align-items:center'>`+
+          `<label>Power Output</label>`+
+          `<b id='ctrl-pct-val' style='font-size:20px;color:var(--accent)'>${pct}%</b>`+
         `</div>`+
-        `<button class='btn' type='submit'>Apply Power Level</button>`+
-      `</form>`+
+        `<input type='range' min='0' max='100' value='${pct}' oninput='document.getElementById("ctrl-pct-val").textContent=this.value+"%"' onchange='setPower(this.value)' style='width:100%;margin:12px 0;accent-color:var(--accent)'>`+
+      `</div>`+
       `<p class='muted small'>Bresenham SSR modulator runs in Timer1 ISR at 120 Hz.</p>`+
     `</div>`;
 }
