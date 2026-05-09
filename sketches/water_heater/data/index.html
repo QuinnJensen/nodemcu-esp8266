@@ -147,25 +147,31 @@ function renderDashboard(){const s=state.status||{};const pct=s.power_percent??0
         `<div style='display:flex;flex-wrap:wrap;gap:8px'>`+[0,10,25,50,75,100].map(p=>`<button class='btn secondary' onclick='setPower(${p})' style='flex:1;min-width:60px'>${p}%</button>`).join('')+`</div>`+
         `<div class='field' style='margin-top:14px'>`+
           `<div style='display:flex;justify-content:space-between;align-items:center'><label>Custom Level</label><b id='dash-pct-val' style='color:var(--accent)'>${pct}%</b></div>`+
-          `<input type='range' min='0' max='100' value='${pct}' oninput='document.getElementById("dash-pct-val").textContent=this.value+"%"' onchange='setPower(this.value)' style='width:100%;margin:8px 0;accent-color:var(--accent)'>`+
+          `<input type='range' min='0' max='100' value='${pct}' oninput='document.getElementById("dash-pct-val").textContent=this.value+"%";setPowerLive(this.value)' onwheel='event.preventDefault();this.value=parseInt(this.value)-(event.deltaY>0?5:-5);this.oninput()' style='width:100%;margin:8px 0;accent-color:var(--accent)'>`+
         `</div>`+
       `</div>`+
     `</div>`;
 }
+let liveTimer=null;
+function setPowerLive(p){if(liveTimer)clearTimeout(liveTimer);liveTimer=setTimeout(()=>setPower(p),150);}
 async function setPower(p){await postForm('/api/heater/power',{percent:p});await refreshAll();}
 function setPowerForm(ev){ev.preventDefault();const v=ev.target.percent.value;setPower(v);return false;}
 function renderControl(){
   const s=state.status||{};
   const pct=s.power_percent??0;
+  const w=s.est_power_watts??0;
+  const a=s.est_current_amps??0;
   document.getElementById('page-control').innerHTML=
     `<div class='card'><h3>Heater Control</h3>`+
+      `<div class='kpi'>${pct}%</div>`+
+      `<div class='small muted' style='margin-bottom:8px'>${Number(w).toFixed(0)} W &nbsp; ${Number(a).toFixed(2)} A</div>`+
       `<div class='bar-wrap' style='height:24px'><div class='bar-fill' style='width:${pct}%'></div></div>`+
-      `<div class='field'>`+
+      `<div class='field' style='margin-top:16px'>`+
         `<div style='display:flex;justify-content:space-between;align-items:center'>`+
           `<label>Power Output</label>`+
           `<b id='ctrl-pct-val' style='font-size:20px;color:var(--accent)'>${pct}%</b>`+
         `</div>`+
-        `<input type='range' min='0' max='100' value='${pct}' oninput='document.getElementById("ctrl-pct-val").textContent=this.value+"%"' onchange='setPower(this.value)' style='width:100%;margin:12px 0;accent-color:var(--accent)'>`+
+        `<input type='range' min='0' max='100' value='${pct}' oninput='document.getElementById("ctrl-pct-val").textContent=this.value+"%";setPowerLive(this.value)' onwheel='event.preventDefault();this.value=parseInt(this.value)-(event.deltaY>0?5:-5);this.oninput()' style='width:100%;margin:12px 0;accent-color:var(--accent)'>`+
       `</div>`+
       `<p class='muted small'>Bresenham SSR modulator runs in Timer1 ISR at 120 Hz.</p>`+
     `</div>`;
