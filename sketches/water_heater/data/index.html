@@ -5,54 +5,90 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Water Heater</title>
   <style>
-:root{--bg:#111315;--panel:#181b1f;--panel2:#1f2429;--text:#e8edf2;--muted:#98a3af;--line:#2c333b;--accent:#d96c6c;--accent2:#efc374;--good:#6fbe7a;--bad:#d96c6c;--radius:14px;}
+:root{
+  --bg:#111315;--panel:#181b1f;--panel2:#1f2429;--text:#e8edf2;--muted:#98a3af;
+  --line:#2c333b;--accent:#d96c6c;--accent2:#efc374;--good:#6fbe7a;--bad:#d96c6c;
+  --radius:14px;--shadow:0 8px 24px rgba(0,0,0,.28);
+}
 *{box-sizing:border-box}
 html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,Segoe UI,Roboto,sans-serif}
-.app{display:grid;grid-template-columns:240px minmax(0,1fr);min-height:100vh}
-.sidebar{background:#15181c;border-right:1px solid var(--line);padding:18px;position:sticky;top:0;height:100vh}
-.brand h1{margin:0;font-size:18px}
+body{min-height:100vh}
+a{color:inherit;text-decoration:none}
+button,input{font:inherit}
+.app{display:grid;grid-template-columns:260px minmax(0,1fr);min-height:100vh}
+.sidebar{background:linear-gradient(180deg,#15181c,#101214);border-right:1px solid var(--line);padding:20px;position:sticky;top:0;height:100vh}
+.brand{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+.logo{width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:grid;place-items:center;color:#1a0d0d;font-weight:800;box-shadow:var(--shadow)}
+.brand h1{font-size:18px;line-height:1.1;margin:0}
 .brand p{margin:2px 0 0;color:var(--muted);font-size:12px}
-.nav{display:grid;gap:6px;margin-top:18px}
-.nav button{width:100%;text-align:left;background:transparent;color:var(--text);border:1px solid transparent;padding:10px 12px;border-radius:10px;cursor:pointer}
+.nav{display:grid;gap:8px;margin-top:18px}
+.nav button{width:100%;text-align:left;background:transparent;color:var(--text);border:1px solid transparent;padding:12px 14px;border-radius:12px;cursor:pointer}
 .nav button:hover,.nav button.active{background:var(--panel);border-color:var(--line)}
-.main{padding:18px 22px 32px}
-.topbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:14px}
-.title h2{margin:0;font-size:24px}
+.main{padding:20px 22px 40px}
+.topbar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:18px}
+.title h2{margin:0;font-size:28px}
 .title p{margin:4px 0 0;color:var(--muted)}
-.badges{display:flex;flex-wrap:wrap;gap:8px}
-.badge{padding:6px 10px;border:1px solid var(--line);border-radius:999px;background:var(--panel);font-size:12px;color:var(--muted)}
+.badges{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.badge{padding:8px 10px;border:1px solid var(--line);border-radius:999px;background:var(--panel);font-size:13px;color:var(--muted)}
 .badge b{color:var(--text)}
-.grid{display:grid;gap:14px}
+.grid{display:grid;gap:16px}
 .grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}
 .grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px}
-.card h3{margin:0 0 10px}
-.kpi{font-size:30px;font-weight:800}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px}
+.card h3{margin:0 0 12px;font-size:17px}
+.card p{margin:8px 0;color:var(--muted)}
+.kpi{font-size:30px;font-weight:800;margin:8px 0 4px}
 .muted{color:var(--muted)}
-.btn{appearance:none;border:none;border-radius:10px;padding:9px 14px;cursor:pointer;background:var(--accent);color:#1a0d0d;font-weight:700}
+.btn{appearance:none;border:none;border-radius:12px;padding:10px 14px;cursor:pointer;background:var(--accent);color:#1a0d0d;font-weight:700;transition:background .2s}
 .btn.secondary{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
 .btn:disabled{opacity:.5;cursor:wait}
-.field{display:grid;gap:5px;margin:6px 0}
-.field input,.field select{width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:9px 10px}
+.field{display:grid;gap:6px;margin:6px 0}
+.field label{font-size:13px;color:var(--muted)}
+.field input,.field select{width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:11px 12px;outline:none}
+.field input:focus{border-color:var(--accent)}
 .bar-wrap{height:18px;background:var(--panel2);border:1px solid var(--line);border-radius:6px;overflow:hidden;margin:6px 0}
 .bar-fill{height:100%;background:linear-gradient(90deg,var(--good),var(--accent2),var(--accent));transition:width .3s}
-.console-pane{background:#0b0d10;border:1px solid var(--line);border-radius:10px;padding:8px;height:48vh;min-height:280px;overflow-y:auto;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;line-height:1.45;color:#cfd6dd}
+.table{width:100%;border-collapse:collapse}
+.table th,.table td{padding:11px 10px;border-bottom:1px solid var(--line);font-size:14px;text-align:left;vertical-align:middle}
+.table th{color:var(--muted);font-weight:600}
+.pill{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:700}
+.pill.good{background:rgba(111,190,122,.14);color:#9ae5a4}
+.pill.bad{background:rgba(217,108,108,.14);color:#f0a2a2}
+.console-wrap{display:flex;flex-direction:column;gap:10px;grid-column:1/-1}
+.console-pane{background:#0b0d10;border:1px solid var(--line);border-radius:12px;padding:10px 12px;height:50vh;min-height:300px;overflow-y:auto;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;line-height:1.45;color:#cfd6dd}
 .clog-line{white-space:pre-wrap;word-break:break-word;padding:1px 0}
 .clog-line .ts{color:#5e6a76;margin-right:6px}
 .clog-line .tag{display:inline-block;min-width:36px;margin-right:6px;font-weight:700;font-size:11px;text-transform:uppercase}
 .clog-line.rx .tag{color:#87d6c1}.clog-line.tx .tag{color:#7fb6e6}.clog-line.warn{color:#efc374}.clog-line.warn .tag{color:#efc374}.clog-line.err{color:#f0a2a2}
-.console-input{display:flex;gap:8px;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:6px 8px;margin-top:8px}
+.console-input{display:flex;gap:8px;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:6px 8px;margin-top:8px}
 .console-input input{flex:1;background:transparent;color:var(--text);border:none;outline:none;font-family:ui-monospace,Menlo,monospace}
 .hidden{display:none!important}
 .mono{font-family:ui-monospace,Menlo,monospace}
 .small{font-size:12px}
-@media (max-width:980px){.app{grid-template-columns:1fr}.sidebar{position:static;height:auto}.grid.two,.grid.three{grid-template-columns:1fr}}
+.modal{display:none;position:fixed;z-index:100;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(4px)}
+.modal-content{position:relative;background:var(--bg);margin:40px auto;padding:20px;width:90%;max-width:900px;border-radius:var(--radius);border:1px solid var(--line);box-shadow:var(--shadow)}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px}
+.modal-body pre{background:#0b0d10;padding:15px;border-radius:10px;overflow:auto;max-height:70vh;margin:0;font-size:13px;border:1px solid var(--line)}
+@media (max-width:980px){
+  .app{grid-template-columns:1fr}
+  .sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--line);padding:12px 16px}
+  .sidebar .brand{margin-bottom:10px}
+  .nav{margin-top:8px;gap:6px;display:flex;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .nav::-webkit-scrollbar{display:none}
+  .nav button{flex-shrink:0;width:auto;padding:8px 12px;font-size:14px}
+  .main{padding:10px 14px 32px}
+  .topbar{margin-bottom:10px}
+  .grid.two,.grid.three{grid-template-columns:1fr}
+}
   </style>
 </head>
 <body>
 <div class="app">
   <aside class="sidebar">
-    <div class="brand"><h1>Water Heater</h1><p>SSR controller</p></div>
+    <div class="brand">
+      <div class="logo">W</div>
+      <div><h1>Water Heater</h1><p>SSR controller</p></div>
+    </div>
     <div class="nav">
       <button data-page="dashboard" class="active">Dashboard</button>
       <button data-page="control">Control</button>
@@ -60,6 +96,7 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:
       <button data-page="temps">Temperatures</button>
       <button data-page="console">Console</button>
       <button data-page="settings">Settings</button>
+      <button data-page="files">LittleFS Files</button>
     </div>
   </aside>
   <main class="main">
@@ -78,13 +115,24 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:
     <section id="page-temps"     class="page grid hidden"></section>
     <section id="page-console"   class="page grid hidden"></section>
     <section id="page-settings"  class="page grid hidden"></section>
+    <section id="page-files"     class="page grid hidden"></section>
   </main>
 </div>
+<div id="file-modal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header"><h3 id="modal-filename"></h3><button class="btn secondary" onclick="closeFileModal()">&times;</button></div>
+    <div class="modal-body"><pre id="modal-content"></pre></div>
+  </div>
+</div>
 <script>
-const state={status:null,config:null,console:{lastSeq:0,timer:null,history:[],histIdx:-1,autoscroll:true},pollTimer:null,page:'dashboard',busy:false};
+const POLL_BASE=8000;
+const state={status:null,config:null,configSnapshot:null,console:{lastSeq:0,timer:null,history:[],histIdx:-1,autoscroll:true},poll:{interval:POLL_BASE},page:'dashboard',busy:false,modalOpen:false,filesLoaded:false,settingsRendered:false};
 const esc=s=>String(s??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
-async function fJ(u){const r=await fetch(u,{cache:'no-store'});if(!r.ok)throw new Error(u);return r.json();}
+async function fetchJson(u){const r=await fetch(u,{cache:'no-store'});if(!r.ok)throw new Error(u);return r.json();}
 const postForm=(u,o)=>{const fd=new URLSearchParams();Object.entries(o).forEach(([k,v])=>fd.append(k,v));return fetch(u,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:fd.toString()});};
+function configFingerprint(c){if(!c)return '';return JSON.stringify({h:c.mqtthost||'',p:c.mqttport??0,b:c.basetopic||'',d:c.deviceid||'',pp:c.prometheusport??0,tz:c.timezone||''});}
+function snapshotConfig(){state.configSnapshot=configFingerprint(state.config);}
+function injectStaleConfigBanner(){if(document.getElementById('stale-config-banner'))return;const page=document.getElementById('page-settings');if(!page)return;const banner=document.createElement('div');banner.id='stale-config-banner';banner.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;margin-bottom:14px;background:rgba(217,164,65,.13);border:1px solid rgba(217,164,65,.4);border-radius:12px;font-size:14px;color:#efc374;grid-column:1/-1';banner.innerHTML=`<span>\u26a0 Settings were changed by another session.</span><span style='display:flex;gap:8px;flex-shrink:0'><button class='btn secondary' style='font-size:13px;padding:6px 12px' onclick='forceRenderSettings()'>Reload Settings</button></span>`;page.insertBefore(banner,page.firstChild);}
 function renderChrome(){const s=state.status||{};document.getElementById('badge-id').textContent=s.id||'-';document.getElementById('badge-wifi').textContent=s.wifi_connected?'up':'down';document.getElementById('badge-mqtt').textContent=s.mqtt_connected?'up':'down';if(s.build_version)document.getElementById('badge-version').textContent=s.build_version;}
 function renderDashboard(){const s=state.status||{};const pct=s.power_percent??0;const w=s.est_power_watts??0;const a=s.est_current_amps??0;const sim=s.sim_output?'ON':'OFF';
   document.getElementById('page-dashboard').innerHTML=
@@ -94,9 +142,9 @@ function renderDashboard(){const s=state.status||{};const pct=s.power_percent??0
       `<div class='card'><div class='muted'>Uptime</div><div class='kpi'>${Math.floor((s.uptime_ms||0)/1000)}s</div><div class='small muted'>RSSI ${s.rssidbm??'-'} dBm &middot; Heap ${s.freeheap??0}</div></div>`+
     `</div>`+
     `<div class='grid two'>`+
-      `<div class='card'><h3>Status</h3><p><b>SSID:</b> ${esc(s.ssid||'-')}</p><p><b>IP:</b> <span class='mono'>${esc(s.ip||'-')}</span></p><p><b>Calibrated:</b> ${s.calibration_enabled?'yes':'no'}</p><p><b>Last cmd:</b> ${s.seconds_since_last_command??0}s ago</p><p><b>At level:</b> ${s.seconds_at_current_power_level??0}s</p></div>`+
+      `<div class='card'><h3>Status</h3><p><b>SSID:</b> ${esc(s.ssid||'-')}</p><p><b>IP:</b> <span class='mono'>${esc(s.ip||'-')}</span></p><p><b>Calibrated:</b> ${s.calibration_enabled?'yes':'no'}</p><p><b>Last cmd:</b> ${s.seconds_since_last_command??0}s ago</p></div>`+
       `<div class='card'><h3>Quick Set</h3>`+
-        [0,10,25,50,75,100].map(p=>`<button class='btn secondary' onclick='setPower(${p})' style='margin:4px'>${p}%</button>`).join('')+
+        `<div style='display:flex;flex-wrap:wrap;gap:8px'>`+[0,10,25,50,75,100].map(p=>`<button class='btn secondary' onclick='setPower(${p})' style='flex:1;min-width:60px'>${p}%</button>`).join('')+`</div>`+
         `<form onsubmit='return setPowerForm(event)' style='margin-top:10px'><div class='field'><label>Power %</label><input type='number' min='0' max='100' name='percent' value='${pct}'></div><button class='btn' type='submit'>Apply</button></form>`+
       `</div>`+
     `</div>`;
@@ -118,22 +166,23 @@ function renderCal(){
   document.getElementById('page-cal').innerHTML=
     `<div class='card'><h3>Calibration</h3><p class='muted small'>Set the heater power, then submit the actual measured watts. Stores under the nearest 10% bucket.</p>`+
       `<form onsubmit='return doCal(event)'><div class='field'><label>Actual power (watts) at current ${s.power_percent??0}% setting</label><input type='number' step='0.1' name='actual_power_watts'></div><button class='btn' type='submit'>Calibrate</button> <button class='btn secondary' type='button' onclick='purgeCal()'>Purge All</button></form>`+
-      `<table style='width:100%;margin-top:14px;border-collapse:collapse'><tbody>${rows}</tbody></table>`+
+      `<table class='table' style='margin-top:14px'><tbody>${rows}</tbody></table>`+
     `</div>`;
 }
 async function doCal(ev){ev.preventDefault();const v=ev.target.actual_power_watts.value;await postForm('/api/heater/calibrate',{actual_power_watts:v});await refreshAll();return false;}
 async function purgeCal(){if(!confirm('Purge calibration table?'))return;await postForm('/api/heater/calibrate/purge',{});await refreshAll();}
 function renderTemps(){
   const s=state.status||{};const sensors=s.sensors||[];
-  const rows=sensors.length?sensors.map(x=>`<tr><td>${x.index}</td><td>${esc(x.name||'-')}</td><td class='mono'>${esc(x.address||'-')}</td><td>${x.connected?'connected':'disc'}</td><td>${x.tempc==null?'-':Number(x.tempc).toFixed(2)+' °C / '+(x.tempc*9/5+32).toFixed(1)+' °F'}</td></tr>`).join(''):`<tr><td colspan='5' class='muted'>No sensors configured. Hook up DS18B20 on D2 for optional 1-Wire support, then trigger a scan.</td></tr>`;
+  const rows=sensors.length?sensors.map(x=>`<tr><td>${x.index}</td><td>${esc(x.name||'-')}</td><td class='mono'>${esc(x.address||'-')}</td><td>${x.connected?`<span class='pill good'>connected</span>`:`<span class='pill bad'>disc</span>`}</td><td>${x.tempc==null?'-':Number(x.tempc).toFixed(1)+' °C / '+(x.tempc*9/5+32).toFixed(0)+' °F'}</td></tr>`).join(''):`<tr><td colspan='5' class='muted'>No sensors configured. Hook up DS18B20 on D2 for optional 1-Wire support, then trigger a scan.</td></tr>`;
   document.getElementById('page-temps').innerHTML=
     `<div class='card'><h3>1-Wire Temperature Sensors (optional)</h3>`+
       `<button class='btn secondary' onclick='postScan()'>Rescan Bus</button>`+
-      `<table style='width:100%;margin-top:10px;border-collapse:collapse'><thead><tr><th>#</th><th>Name</th><th>Addr</th><th>State</th><th>Reading</th></tr></thead><tbody>${rows}</tbody></table>`+
+      `<table class='table' style='margin-top:10px'><thead><tr><th>#</th><th>Name</th><th>Addr</th><th>State</th><th>Reading</th></tr></thead><tbody>${rows}</tbody></table>`+
     `</div>`;
 }
 async function postScan(){await postForm('/api/sensors/scan',{});setTimeout(refreshAll,1500);}
 function renderSettings(){
+  if(state.settingsRendered)return;state.settingsRendered=true;
   const c=state.config||{};
   document.getElementById('page-settings').innerHTML=
     `<div class='card'><h3>MQTT &amp; Prometheus</h3><form onsubmit='return saveServices(event)'>`+
@@ -146,29 +195,35 @@ function renderSettings(){
     `</form><p class='small muted'>Topics: <span class='mono'>${esc((c.topics||{}).command||'-')}</span> / <span class='mono'>${esc((c.topics||{}).status||'-')}</span></p></div>`+
     `<div class='card'><h3>Timezone</h3><form onsubmit='return saveTz(event)'><div class='field'><label>POSIX TZ</label><input name='timezone' value='${esc(c.timezone||'')}'></div><button class='btn' type='submit'>Save</button></form></div>`;
 }
+function forceRenderSettings(){state.settingsRendered=false;renderSettings();}
 async function saveServices(ev){ev.preventDefault();const fd=new FormData(ev.target);await postForm('/api/config/services',Object.fromEntries(fd));await refreshAll();return false;}
 async function saveTz(ev){ev.preventDefault();const fd=new FormData(ev.target);await postForm('/api/config/time',Object.fromEntries(fd));await refreshAll();return false;}
 
 // Console
 function renderConsole(){
   document.getElementById('page-console').innerHTML=
-    `<div class='card' style='grid-column:1/-1'><h3>Console</h3>`+
+    `<div class='card console-wrap'><h3>Console</h3>`+
     `<div class='console-pane' id='console-pane'></div>`+
     `<form class='console-input' onsubmit='return sendConsole(event)'><span style='color:var(--accent)'>&gt;</span><input id='console-cmd' placeholder='/help or {"command":"status"}'><button class='btn' type='submit'>Send</button></form>`+
     `</div>`;
   startConsolePoll();
 }
-async function pollConsoleOnce(){try{const d=await fJ('/api/console/log?after='+state.console.lastSeq);if(d.entries)appendConsole(d.entries);if(typeof d.seq==='number')state.console.lastSeq=d.seq;}catch(e){}}
+async function pollConsoleOnce(){try{const d=await fetchJson('/api/console/log?after='+state.console.lastSeq);if(d.entries)appendConsole(d.entries);if(typeof d.seq==='number')state.console.lastSeq=d.seq;}catch(e){}}
 function appendConsole(entries){const pane=document.getElementById('console-pane');if(!pane)return;const f=document.createDocumentFragment();for(const e of entries){const div=document.createElement('div');div.className='clog-line '+(e.type||'info');const ts=e.local||('+'+Math.floor((e.uptime_ms||0)/1000)+'s');div.innerHTML=`<span class='ts'>${ts}</span><span class='tag'>${esc(e.type||'info')}</span><span>${esc(e.msg||'')}</span>`;f.appendChild(div);}pane.appendChild(f);while(pane.children.length>300)pane.removeChild(pane.firstChild);if(state.console.autoscroll)pane.scrollTop=pane.scrollHeight;}
 function startConsolePoll(){stopConsolePoll();pollConsoleOnce();state.console.timer=setInterval(pollConsoleOnce,2000);}
 function stopConsolePoll(){if(state.console.timer){clearInterval(state.console.timer);state.console.timer=null;}}
 async function sendConsole(ev){ev.preventDefault();const inp=document.getElementById('console-cmd');const cmd=inp.value.trim();if(!cmd)return false;if(cmd.toLowerCase()==='/clear'){document.getElementById('console-pane').innerHTML='';inp.value='';return false;}inp.value='';await postForm('/api/console/command',{cmd});setTimeout(pollConsoleOnce,300);return false;}
 
-async function refreshAll(){try{state.config=await fJ('/api/config');state.status=await fJ('/api/status');renderChrome();renderPages();}catch(e){console.warn(e);}}
+// Files
+function renderFiles(){if(state.filesLoaded)return;state.filesLoaded=true;const el=document.getElementById('page-files');el.innerHTML=`<div class='card'><h3>LittleFS Contents</h3><div id='fs-body'><span class='muted'>Loading...</span></div></div>`;fetch('/api/fs/list',{cache:'no-store'}).then(r=>r.json()).then(d=>{const files=d.files||[];const used=d.used_bytes||0,total=d.total_bytes||0;const pct=total?Math.round(used/total*100):0;const rows=files.length?files.map(f=>`<tr><td class='mono'>${esc(f.name)}</td><td style='text-align:right'>${f.size}</td><td><button class='btn secondary' onclick="viewFile('${esc(f.name)}')">View</button></td></tr>`).join(''):`<tr><td colspan='3' class='muted'>No files found.</td></tr>`;document.getElementById('fs-body').innerHTML=`<p><b>Used:</b> ${used} / ${total} bytes (${pct}%)<button class='btn secondary' style='margin-left:1rem' onclick='state.filesLoaded=false;renderFiles()'>Reload</button></p><table class='table'><thead><tr><th>File</th><th style='text-align:right'>Bytes</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;}).catch(()=>{document.getElementById('fs-body').innerHTML=`<span class='muted'>Failed to load file list.</span>`;state.filesLoaded=false;});}
+function viewFile(name){const path=name.startsWith('/')?name:'/'+name;document.getElementById('modal-filename').textContent=path;document.getElementById('modal-content').textContent='Loading...';document.getElementById('file-modal').style.display='block';state.modalOpen=true;fetch('/api/fs/file?path='+encodeURIComponent(path),{cache:'no-store'}).then(r=>r.text()).then(t=>{document.getElementById('modal-content').textContent=t;}).catch(()=>{document.getElementById('modal-content').textContent='Error loading file.';});}
+function closeFileModal(){document.getElementById('file-modal').style.display='none';state.modalOpen=false;}
+
+async function refreshAll(){try{state.config=await fetchJson('/api/config');state.status=await fetchJson('/api/status');const freshPrint=configFingerprint(state.config);if(state.configSnapshot && freshPrint!==state.configSnapshot){if(state.settingsRendered)injectStaleConfigBanner();}else{state.configSnapshot=freshPrint;}renderChrome();renderPages();}catch(e){console.warn(e);}}
 function renderPages(){renderDashboard();renderControl();renderCal();renderTemps();renderSettings();showPage(state.page);}
-function showPage(name){state.page=name;document.querySelectorAll('.page').forEach(p=>p.classList.add('hidden'));const p=document.getElementById('page-'+name);if(p)p.classList.remove('hidden');document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===name));const titles={dashboard:['Dashboard','Live heater state'],control:['Control','Set the heater power'],cal:['Calibration','Power-table calibration'],temps:['Temperatures','Optional 1-Wire DS18B20 sensors'],console:['Console','Recent device events and command entry'],settings:['Settings','MQTT broker, topics, identity, timezone']};document.getElementById('page-title').textContent=(titles[name]||['',''])[0];document.getElementById('page-subtitle').textContent=(titles[name]||['',''])[1];if(name==='console')renderConsole();else stopConsolePoll();}
+function showPage(name){state.page=name;document.querySelectorAll('.page').forEach(p=>p.classList.add('hidden'));const p=document.getElementById('page-'+name);if(p)p.classList.remove('hidden');document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===name));const titles={dashboard:['Dashboard','Live heater state'],control:['Control','Set the heater power'],cal:['Calibration','Power-table calibration'],temps:['Temperatures','Optional 1-Wire DS18B20 sensors'],console:['Console','Recent device events and command entry'],settings:['Settings','MQTT broker, topics, identity, timezone'],files:['Files','Inspect device storage']};document.getElementById('page-title').textContent=(titles[name]||['',''])[0];document.getElementById('page-subtitle').textContent=(titles[name]||['',''])[1];if(name==='console')renderConsole();else stopConsolePoll();if(name==='files')renderFiles();}
 document.querySelectorAll('.nav button').forEach(b=>b.addEventListener('click',()=>showPage(b.dataset.page)));
-function pollTick(){refreshAll().finally(()=>state.pollTimer=setTimeout(pollTick,8000));}
-refreshAll().finally(()=>state.pollTimer=setTimeout(pollTick,8000));
+function pollTick(){if(state.busy||state.modalOpen){setTimeout(pollTick,2000);return;}refreshAll().finally(()=>setTimeout(pollTick,state.poll.interval));}
+pollTick();
 </script>
 </body></html>
