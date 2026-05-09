@@ -35,6 +35,21 @@ void setMqttClientDisplayCallbacks(const MqttClientDisplay& cb) { sDisplay = cb;
 void setMqttMessageHandler(MqttMessageHandler handler)          { sMessageHandler   = handler; }
 void setMqttConnectedHandler(MqttConnectedHandler handler)      { sConnectedHandler = handler; }
 
+static void enterIdle() {
+  sState          = MqttReconnectState::IDLE;
+  sStateEnteredMs = millis();
+  lastMqttAttemptMs = millis();
+}
+
+void notifyMqttConfigChanged() {
+  Serial.println("[MQTT] Config change notified -> forcing reconnect");
+  mqtt.disconnect();
+  wifiClient.stop();
+  enterIdle();
+  // Force immediate retry by backdating the attempt timer
+  lastMqttAttemptMs = millis() - mqttretryms - 100;
+}
+
 const char* mqttReconnectStateLabel() {
   switch (sState) {
     case MqttReconnectState::IDLE:        return "idle";
@@ -51,12 +66,6 @@ static void _kickSpinner(unsigned long durationMs = 1500) {
 }
 static void _setStatus(const String& msg, unsigned long holdMs = 3000) {
   if (sDisplay.setStatus) sDisplay.setStatus(msg, holdMs);
-}
-
-static void enterIdle() {
-  sState          = MqttReconnectState::IDLE;
-  sStateEnteredMs = millis();
-  lastMqttAttemptMs = millis();
 }
 
 // ── publish helper (unchanged) ────────────────────────────────────────────────

@@ -4,6 +4,7 @@
 #include <ESP8266WiFi.h>
 #include "app_state.h"
 #include "app_config.h"
+#include "mqtt_client.h"
 #include "util.h"
 #include "console_log.h"
 #include "display_ui.h"
@@ -188,12 +189,16 @@ static void handlePostConsoleCommand() {
 
 static void handlePostServicesConfig() {
   bool changed = false;
-  if (webServer.hasArg("mqtthost"))       changed |= setMqttHostValue(webServer.arg("mqtthost").c_str());
-  if (webServer.hasArg("mqttport"))       changed |= setMqttPortValue((uint16_t)webServer.arg("mqttport").toInt());
-  if (webServer.hasArg("basetopic"))      changed |= setBaseTopicValue(webServer.arg("basetopic").c_str());
-  if (webServer.hasArg("deviceid"))       changed |= setDeviceIdValue(webServer.arg("deviceid").c_str());
+  bool mqttChanged = false;
+  if (webServer.hasArg("mqtthost"))       { bool c = setMqttHostValue(webServer.arg("mqtthost").c_str()); changed |= c; mqttChanged |= c; }
+  if (webServer.hasArg("mqttport"))       { bool c = setMqttPortValue((uint16_t)webServer.arg("mqttport").toInt()); changed |= c; mqttChanged |= c; }
+  if (webServer.hasArg("basetopic"))      { bool c = setBaseTopicValue(webServer.arg("basetopic").c_str()); changed |= c; mqttChanged |= c; }
+  if (webServer.hasArg("deviceid"))       { bool c = setDeviceIdValue(webServer.arg("deviceid").c_str()); changed |= c; mqttChanged |= c; }
   if (webServer.hasArg("prometheusport")) changed |= setPrometheusPortValue((uint16_t)webServer.arg("prometheusport").toInt());
+  
   saveConfig();
+  if (mqttChanged) notifyMqttConfigChanged();
+  
   setStatusMessage(changed ? "services saved" : "services unchanged", 1500);
   webSendOk("services saved");
 }

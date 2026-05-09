@@ -25,6 +25,7 @@ void setMqttPublishLogger(MqttPublishLogger fn);
 void initMqttClient();
 void startMqttIfWifiReady();
 void serviceMqttClient();
+void notifyMqttConfigChanged();
 
 // Exposed for display -- returns human-readable reconnect state label
 const char* mqttReconnectStateLabel();
