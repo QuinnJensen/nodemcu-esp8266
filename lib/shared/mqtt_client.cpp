@@ -21,10 +21,10 @@ static MqttReconnectState sState           = MqttReconnectState::IDLE;
 static unsigned long      sStateEnteredMs  = 0;
 static IPAddress          sResolvedIp;
 
-// TCP connect timeout -- if the TCP layer doesn't report connected() within
-// this window we give up and go back to IDLE.  4 s is long enough for a slow
-// LAN but short enough that the UI stays responsive.
-static const unsigned long mqttConnectTimeoutMs = 4000UL;
+// TCP connect timeout -- we set the WiFiClient timeout to 0 so the initial 
+// connect() call returns immediately while LWIP performs the SYN in the 
+// background. We then poll for completion in the state machine.
+static const unsigned long mqttTcpPollTimeoutMs = 5000UL;
 
 // ── display / handler callbacks ──────────────────────────────────────────────
 static MqttClientDisplay    sDisplay;
@@ -182,10 +182,6 @@ void serviceMqttClient() {
       break;
 
     // ── RESOLVING: DNS lookup ───────────────────────────────────────────────
-    // WiFi.hostByName() on ESP8266 uses LWIP's async resolver but the
-    // Arduino wrapper blocks for up to ~100 ms if the DNS server is reachable.
-    // For bare IP strings it returns in microseconds.
-    // We accept this brief pause -- it only happens once per retry cycle.
     case MqttReconnectState::RESOLVING: {
       IPAddress ip;
       int res = WiFi.hostByName(config.mqttHost, ip);
@@ -193,18 +189,15 @@ void serviceMqttClient() {
         sResolvedIp = ip;
         Serial.print("[MQTT] resolved "); Serial.print(config.mqttHost);
         Serial.print(" -> "); Serial.println(ip);
-        // Initiate TCP connect -- returns quickly; LWIP does the SYN in bg
-        wifiClient.setTimeout(mqttConnectTimeoutMs);
-        bool started = wifiClient.connect(sResolvedIp, config.mqttPort);
-        if (!started) {
-          Serial.println("[MQTT] TCP connect() returned false immediately");
-          _setStatus("broker unreachable", 2000);
-          enterIdle();
-          break;
-        }
+        
+        // Initiate TCP connect with 0 timeout. This makes connect() 
+        // return immediately while the SYN happens in the background.
+        wifiClient.setTimeout(0);
+        wifiClient.connect(sResolvedIp, config.mqttPort);
+        
         sState = MqttReconnectState::CONNECTING;
         sStateEnteredMs = now;
-        Serial.println("[MQTT] TCP SYN sent -> CONNECTING");
+        Serial.println("[MQTT] TCP SYN sent -> CONNECTING (background)");
       } else {
         Serial.print("[MQTT] DNS failed for "); Serial.println(config.mqttHost);
         _setStatus("DNS fail", 2000);
@@ -217,21 +210,17 @@ void serviceMqttClient() {
     case MqttReconnectState::CONNECTING:
       if (wifiClient.connected()) {
         Serial.println("[MQTT] TCP connected -> HANDSHAKING");
+        // Restore a reasonable timeout for actual data exchange
+        wifiClient.setTimeout(5000);
         sState = MqttReconnectState::HANDSHAKING;
         sStateEnteredMs = now;
-        // fall through intentionally to run handshake this same tick
-      } else if (now - sStateEnteredMs >= mqttConnectTimeoutMs) {
+      } else if (now - sStateEnteredMs >= mqttTcpPollTimeoutMs) {
         Serial.println("[MQTT] TCP connect timeout");
         _setStatus("broker timeout", 2000);
         wifiClient.stop();
         enterIdle();
-        break;
-      } else {
-        // Still waiting -- yield so the rest of loop() runs
-        break;
       }
-      // fall through
-      [[fallthrough]];
+      break;
 
     // ── HANDSHAKING: MQTT protocol over open TCP socket ─────────────────────
     case MqttReconnectState::HANDSHAKING:
