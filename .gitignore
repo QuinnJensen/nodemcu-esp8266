@@ -1,0 +1,24 @@
+# PlatformIO
+.pio
+.pioenvs
+.piolibdeps
+*.bin
+*.elf
+*.hex
+
+# VS Code
+.vscode/
+.history/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Python (if using scripts)
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Local config
+.env
+local.ini
