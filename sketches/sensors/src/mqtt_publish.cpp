@@ -20,9 +20,7 @@ void publishAggregateStatus() {
     return;
   }
 
-  static StaticJsonDocument<2048> doc;
-  doc.clear();
-
+  DynamicJsonDocument doc(2560);
   doc["type"]             = "status";
   doc["id"]               = safeDeviceId();
   doc["chipid"]           = String(ESP.getChipId(), HEX);
@@ -72,9 +70,7 @@ void publishAggregateStatus() {
 void publishPerSensorStatus(uint8_t i) {
   if (!mqtt.connected() || i >= sensorCount) return;
 
-  static StaticJsonDocument<512> doc;
-  doc.clear();
-
+  DynamicJsonDocument doc(1024);
   doc["type"]      = "sensor";
   doc["id"]        = safeDeviceId();
   doc["online"]    = true;
@@ -113,9 +109,7 @@ void publishWaterStatus() {
     return;
   }
 
-  static StaticJsonDocument<512> doc;
-  doc.clear();
-
+  DynamicJsonDocument doc(1024);
   doc["type"]   = "water";
   doc["id"]     = safeDeviceId();
   doc["online"] = true;
@@ -133,9 +127,7 @@ void publishWaterStatus() {
 void publishCommandResult(const char* type, bool ok, const char* msg) {
   if (!mqtt.connected()) return;
 
-  static StaticJsonDocument<256> reply;
-  reply.clear();
-
+  DynamicJsonDocument reply(512);
   reply["type"]    = type ? type : "result";
   reply["id"]      = safeDeviceId();
   reply["ok"]      = ok;

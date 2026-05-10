@@ -28,7 +28,7 @@ static uint16_t pendingTxRawRepeat = 0;
 
 void publishCommandResult(const char* type, bool ok, const char* message) {
   if (!mqtt.connected()) return;
-  StaticJsonDocument<384> reply;
+  DynamicJsonDocument reply(512);
   reply["type"] = type;
   reply["id"]   = safeDeviceId();
   reply["ok"]   = ok;
@@ -38,7 +38,7 @@ void publishCommandResult(const char* type, bool ok, const char* message) {
 
 void publishUhfStatus(bool retained) {
   if (!mqtt.connected()) return;
-  StaticJsonDocument<2048> doc;
+  DynamicJsonDocument doc(2560);
   doc["type"] = "status";
   doc["id"]   = safeDeviceId();
   doc["online"] = true;
@@ -81,7 +81,7 @@ void publishUhfStatus(bool retained) {
 }
 
 void handleCommandJson(const String& payload) {
-  StaticJsonDocument<4096> doc;
+  DynamicJsonDocument doc(4096);
   DeserializationError err = deserializeJson(doc, payload);
   if (err) {
     lastRxType = "badjson";
@@ -100,7 +100,7 @@ void handleCommandJson(const String& payload) {
     return;
   }
   if (!strcmp(command, "listprofiles")) {
-    StaticJsonDocument<3072> reply;
+    DynamicJsonDocument reply(4096);
     reply["type"] = "listprofilesreply";
     reply["id"]   = safeDeviceId();
     reply["ok"]   = true;
@@ -109,7 +109,7 @@ void handleCommandJson(const String& payload) {
     return;
   }
   if (!strcmp(command, "listcodes")) {
-    StaticJsonDocument<4096> reply;
+    DynamicJsonDocument reply(6144);
     reply["type"] = "listcodesreply";
     reply["id"]   = safeDeviceId();
     reply["ok"]   = true;
@@ -121,7 +121,7 @@ void handleCommandJson(const String& payload) {
     const char* id = doc["id"] | "";
     int idx = findProfileIndexById(id);
     if (idx < 0) { publishCommandResult("getprofilereply", false, "profile not found"); return; }
-    StaticJsonDocument<512> reply;
+    DynamicJsonDocument reply(1024);
     reply["type"] = "getprofilereply";
     reply["id"]   = safeDeviceId();
     reply["ok"]   = true;
@@ -138,7 +138,7 @@ void handleCommandJson(const String& payload) {
     const char* id = doc["id"] | "";
     int idx = findCodeIndexById(id);
     if (idx < 0) { publishCommandResult("getcodereply", false, "code not found"); return; }
-    StaticJsonDocument<512> reply;
+    DynamicJsonDocument reply(1024);
     reply["type"]="getcodereply"; reply["id"]=safeDeviceId(); reply["ok"]=true;
     JsonObject c = reply.createNestedObject("code");
     c["id"]=codes[idx].id; c["profileId"]=codes[idx].profileId;
@@ -238,7 +238,7 @@ void handleCommandJson(const String& payload) {
     return;
   }
   if (!strcmp(command, "ls")) {
-    StaticJsonDocument<768> reply;
+    DynamicJsonDocument reply(1024);
     reply["type"]="lsreply"; reply["id"]=safeDeviceId(); reply["ok"]=true;
     reply["profilesfile"]=UHF_PROFILES_FILE;
     reply["codesfile"]=UHF_CODES_FILE;
@@ -267,7 +267,7 @@ void serviceUhfDeferred() {
     int idx = findCodeIndexById(pendingTxCodeId);
     if (idx < 0) { publishCommandResult("txreply", false, "code not found"); return; }
     bool ok = transmitCodeRecord(codes[idx]);
-    StaticJsonDocument<512> reply;
+    DynamicJsonDocument reply(1024);
     reply["type"]="txreply"; reply["id"]=safeDeviceId(); reply["ok"]=ok;
     reply["codeId"]=codes[idx].id; reply["profileId"]=codes[idx].profileId;
     reply["value"]=codes[idx].value; reply["bits"]=codes[idx].bits; reply["repeat"]=codes[idx].repeat;
@@ -279,7 +279,7 @@ void serviceUhfDeferred() {
     int pidx = findProfileIndexById(pendingTxRawProfileId);
     if (pidx < 0) { publishCommandResult("txrawreply", false, "profile not found"); return; }
     bool ok = transmitWaveform(profiles[pidx], pendingTxRawValue, pendingTxRawBits, pendingTxRawRepeat);
-    StaticJsonDocument<512> reply;
+    DynamicJsonDocument reply(1024);
     reply["type"]="txrawreply"; reply["id"]=safeDeviceId(); reply["ok"]=ok;
     reply["profileId"]=profiles[pidx].id;
     reply["value"]=pendingTxRawValue; reply["bits"]=pendingTxRawBits; reply["repeat"]=pendingTxRawRepeat;
