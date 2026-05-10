@@ -180,6 +180,18 @@ static void handleApiScanPost() {
   setStatusMessage("scan queued", 1200);
   webSendOk("scan queued");
 }
+
+static void handlePostSensorRename() {
+  if (!webServer.hasArg("index") || !webServer.hasArg("name")) {
+    webSendError("missing index or name", 400); return;
+  }
+  uint8_t index1 = (uint8_t)webServer.arg("index").toInt();
+  String name = webServer.arg("name");
+  name.trim();
+  if (!setSensorNameByIndex(index1, name.c_str())) { webSendError("rename failed", 400); return; }
+  setStatusMessage("sensor renamed", 1500);
+  webSendOk("sensor renamed");
+}
 #endif
 
 static void heaterRoutes() {
@@ -188,7 +200,8 @@ static void heaterRoutes() {
   webServer.on("/api/heater/calibrate", HTTP_POST, handleApiCalPost);
   webServer.on("/api/heater/calibrate/purge", HTTP_POST, handleApiCalPurge);
 #ifdef SHARED_LIB_USE_ONEWIRE
-  webServer.on("/api/sensors/scan",  HTTP_POST, handleApiScanPost);
+  webServer.on("/api/sensors/scan",   HTTP_POST, handleApiScanPost);
+  webServer.on("/api/sensors/rename", HTTP_POST, handlePostSensorRename);
 #endif
 }
 

@@ -189,7 +189,10 @@ async function doCal(ev){ev.preventDefault();const v=ev.target.actual_power_watt
 async function purgeCal(){if(!confirm('Purge calibration table?'))return;await postForm('/api/heater/calibrate/purge',{});await refreshAll();}
 function renderTemps(){
   const s=state.status||{};const sensors=s.sensors||[];
-  const rows=sensors.length?sensors.map(x=>`<tr><td>${x.index}</td><td>${esc(x.name||'-')}</td><td class='mono'>${esc(x.address||'-')}</td><td>${x.connected?`<span class='pill good'>connected</span>`:`<span class='pill bad'>disc</span>`}</td><td>${x.tempc==null?'-':Number(x.tempc).toFixed(1)+' °C / '+(x.tempc*9/5+32).toFixed(0)+' °F'}</td></tr>`).join(''):`<tr><td colspan='5' class='muted'>No sensors configured. Hook up DS18B20 on D2 for optional 1-Wire support, then trigger a scan.</td></tr>`;
+  const rows=sensors.length?sensors.map(x=>{
+    const c=x.tempc==null?'-':Number(x.tempc).toFixed(1)+' \u00b0C / '+(x.tempc*9/5+32).toFixed(0)+'\u00b0F';
+    return `<tr><td>${x.index}</td><td>${esc(x.name||'-')}</td><td class='mono'>${esc(x.address||'-')}</td><td>${x.connected?`<span class='pill good'>connected</span>`:`<span class='pill bad'>disc</span>`}</td><td>${c}</td></tr>`;
+  }).join(''):`<tr><td colspan='5' class='muted'>No sensors configured. Hook up DS18B20 on D2 for optional 1-Wire support, then trigger a scan.</td></tr>`;
   document.getElementById('page-temps').innerHTML=
     `<div class='card'><h3>1-Wire Temperature Sensors (optional)</h3>`+
       `<button class='btn secondary' onclick='postScan()'>Rescan Bus</button>`+
@@ -199,8 +202,10 @@ function renderTemps(){
 async function postScan(){await postForm('/api/sensors/scan',{});setTimeout(refreshAll,1500);}
 function renderSettings(){
   if(state.settingsRendered)return;state.settingsRendered=true;
-  const c=state.config||{};
+  const c=state.config||{};const s=state.status||{};const sensors=s.sensors||[];
+  const snRows=sensors.length?sensors.map(x=>`<tr><td>${x.index}</td><td class='mono'>${esc(x.address)}</td><td><form class='row' onsubmit='return renameSensor(event,${x.index})'><input name='name' value='${esc(x.name)}' maxlength='31' style='max-width:160px;padding:8px 10px'><button class='btn btn-action' type='submit'>Save</button></form></td></tr>`).join(''):`<tr><td colspan='3' class='muted'>No sensors. Run a scan on Temperatures page.</td></tr>`;
   document.getElementById('page-settings').innerHTML=
+    `<div class='card' style='grid-column:1/-1'><h3>Sensor Names</h3><p class='muted small'>Names are persisted by address. Live readings update automatically.</p><table class='table'><thead><tr><th>#</th><th>Address</th><th>Rename</th></tr></thead><tbody>${snRows}</tbody></table></div>`+
     `<div class='card'><h3>MQTT &amp; Prometheus</h3><form onsubmit='return saveServices(event)'>`+
       `<div class='field'><label>MQTT host</label><input name='mqtthost' value='${esc(c.mqtthost||'')}'></div>`+
       `<div class='field'><label>MQTT port</label><input name='mqttport' type='number' value='${c.mqttport??1883}'></div>`+
@@ -214,6 +219,7 @@ function renderSettings(){
 function forceRenderSettings(){state.settingsRendered=false;renderSettings();}
 async function saveServices(ev){ev.preventDefault();const fd=new FormData(ev.target);await postForm('/api/config/services',Object.fromEntries(fd));state.config=await fetchJson('/api/config');state.configSnapshot=configFingerprint(state.config);await refreshAll();return false;}
 async function saveTz(ev){ev.preventDefault();const fd=new FormData(ev.target);await postForm('/api/config/time',Object.fromEntries(fd));state.config=await fetchJson('/api/config');state.configSnapshot=configFingerprint(state.config);await refreshAll();return false;}
+async function renameSensor(ev,index){ev.preventDefault();const fd=new FormData(ev.target);await postForm('/api/sensors/rename',{index,name:fd.get('name')});await refreshAll();return false;}
 
 // Console
 function renderConsole(){
