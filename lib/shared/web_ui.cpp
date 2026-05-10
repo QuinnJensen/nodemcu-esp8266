@@ -61,7 +61,7 @@ static void handleHomePage() {
 }
 
 static void handleApiStatus() {
-  StaticJsonDocument<1536> doc;
+  DynamicJsonDocument doc(2048);
   doc["id"]              = safeDeviceId();
   doc["ssid"]            = WiFi.SSID();
   doc["ip"]              = ipToString(WiFi.localIP());
@@ -82,7 +82,7 @@ static void handleApiStatus() {
 }
 
 static void handleApiConfig() {
-  StaticJsonDocument<1536> doc;
+  DynamicJsonDocument doc(2048);
   doc["mqtthost"]       = config.mqttHost;
   doc["mqttport"]       = config.mqttPort;
   doc["basetopic"]      = config.baseTopic;

@@ -13,15 +13,13 @@ extern "C" {
   #include "user_interface.h"
 }
 
-// Global state for Bresenham modulator (volatile for ISR safety)
-volatile uint8_t  isrPowerPct    = 0;
-volatile uint8_t  isrOutputState = 0;
-volatile uint32_t simTickCount   = 0;
-volatile uint32_t simOnTickCount = 0;
+// Global state for Bresenham modulator (volatile and explicitly in DRAM)
+volatile uint8_t  isrPowerPct    __attribute__((section(".iram.data"))) = 0;
+volatile uint8_t  isrOutputState __attribute__((section(".iram.data"))) = 0;
+volatile uint32_t simTickCount   __attribute__((section(".iram.data"))) = 0;
+volatile uint32_t simOnTickCount __attribute__((section(".iram.data"))) = 0;
 
 // Variables used by ISR MUST be in DRAM (not Flash) on ESP8266.
-// Using explicit section attribute to ensure they are in IRAM/DRAM data area
-// so they remain reachable while the Flash bus is locked.
 static volatile int32_t bresAcc  __attribute__((section(".iram.data"))) = 0;
 static volatile uint32_t rngSeed __attribute__((section(".iram.data"))) = 0x12345678;
 
@@ -41,18 +39,21 @@ static void IRAM_ATTR modulatorIsr() {
   simTickCount++;
   
   // Pure-software XORShift PRNG (100% IRAM-safe)
-  // All variables accessed here are marked IRAM_DATA or volatile.
   rngSeed ^= rngSeed << 13;
   rngSeed ^= rngSeed >> 17;
   rngSeed ^= rngSeed << 5;
   
   // Dither the threshold (-15 to +15)
-  int16_t dither = (int16_t)((rngSeed & 0x1F) - 15);
-  uint16_t threshold = 1000 + dither;
-
-  bresAcc += (isrPowerPct * 10);
+  int32_t dither = (int32_t)(rngSeed & 0x1F) - 15;
   
-  if (bresAcc >= (int32_t)threshold) {
+  // Multiply by 10 using shifts and adds to avoid non-IRAM math helpers
+  // which can cause reboots if Flash is busy (e.g. during sensor scans).
+  // (isrPowerPct * 10) == (isrPowerPct << 3) + (isrPowerPct << 1)
+  uint32_t p10 = ((uint32_t)isrPowerPct << 3) + ((uint32_t)isrPowerPct << 1);
+  
+  bresAcc += (int32_t)p10;
+  
+  if (bresAcc >= (1000 + dither)) {
     bresAcc -= 1000;
     isrOutputState = 1;
     GPOS = (1 << WH_SSR_SIM_PIN);

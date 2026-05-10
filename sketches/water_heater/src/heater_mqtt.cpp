@@ -35,7 +35,7 @@ void publishHeaterStatus(bool retained) {
     consoleLog(CLOG_WARN, "[TX] publishHeaterStatus: MQTT not connected, skipping.");
     return;
   }
-  StaticJsonDocument<2048> doc;
+  DynamicJsonDocument doc(2048);
   doc["type"]   = "status";
   doc["id"]     = safeDeviceId();
   doc["online"] = true;
@@ -70,7 +70,7 @@ void publishHeaterStatus(bool retained) {
 
 void publishFilesystemListing() {
   FSInfo info;
-  StaticJsonDocument<2048> doc;
+  DynamicJsonDocument doc(2048);
   doc["type"] = "ls_reply";
   doc["id"]   = safeDeviceId();
   if (!LittleFS.info(info)) {
