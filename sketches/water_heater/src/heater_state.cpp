@@ -43,17 +43,19 @@ static void IRAM_ATTR modulatorIsr() {
   rngSeed ^= rngSeed >> 17;
   rngSeed ^= rngSeed << 5;
   
-  // Dither the threshold (-15 to +15)
-  int32_t dither = (int32_t)(rngSeed & 0x1F) - 15;
+  // Dither the power increment itself to create robust jitter.
+  // Using -64 to +63 range (approx +/- 6.4% on our 1000 scale).
+  // This ensures the accumulator fills at slightly different rates every tick,
+  // robustly breaking phase-lock with the 60Hz AC mains.
+  int32_t jitter = (int32_t)(rngSeed & 0x7F) - 64;
   
   // Multiply by 10 using shifts and adds to avoid non-IRAM math helpers
-  // which can cause reboots if Flash is busy (e.g. during sensor scans).
   // (isrPowerPct * 10) == (isrPowerPct << 3) + (isrPowerPct << 1)
   uint32_t p10 = ((uint32_t)isrPowerPct << 3) + ((uint32_t)isrPowerPct << 1);
   
-  bresAcc += (int32_t)p10;
+  bresAcc += (int32_t)p10 + jitter;
   
-  if (bresAcc >= (1000 + dither)) {
+  if (bresAcc >= 1000) {
     bresAcc -= 1000;
     isrOutputState = 1;
     GPOS = (1 << WH_SSR_SIM_PIN);
