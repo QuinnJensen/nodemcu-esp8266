@@ -21,10 +21,11 @@ void setWebConsoleHelpFn(WebConsoleHelpFn fn) { sHelpFn   = fn; }
 void setWebExtraRoutesFn(WebExtraRoutesFn fn) { sRoutesFn = fn; }
 void setWebDeferredFn(WebDeferredFn fn)       { sDeferFn  = fn; }
 
-void webSendJsonDoc(JsonDocument& doc) {
-  String out;
-  serializeJson(doc, out);
-  webServer.send(200, "application/json", out);
+void webSendJsonDoc(JsonDocument& doc, int code) {
+  size_t len = measureJson(doc);
+  webServer.setContentLength(len);
+  webServer.send(code, "application/json", "");
+  serializeJson(doc, webServer.client());
   yield();
 }
 
@@ -39,10 +40,7 @@ void webSendError(const char* msg, int code) {
   StaticJsonDocument<192> doc;
   doc["ok"] = false;
   doc["message"] = msg ? msg : "error";
-  String out;
-  serializeJson(doc, out);
-  webServer.send(code, "application/json", out);
-  yield();
+  webSendJsonDoc(doc, code);
 }
 
 static bool streamLittleFsFile(const char* path, const char* contentType) {

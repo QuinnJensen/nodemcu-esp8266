@@ -21,6 +21,6 @@ void serviceMainWebUi();
 void serviceDeferredWebActions();
 
 // Helpers exposed for sketch endpoints
-void webSendJsonDoc(JsonDocument& doc);
+void webSendJsonDoc(JsonDocument& doc, int code = 200);
 void webSendOk(const char* msg);
-void webSendError(const char* msg, int code);
+void webSendError(const char* msg, int code = 400);
