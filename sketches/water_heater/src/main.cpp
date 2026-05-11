@@ -108,6 +108,7 @@ extern bool pendingScan;
 #endif
 
 void loop() {
+  serviceModulatorOneShot();
   serviceWifiPortal();
   serviceMainWebUi();
   serviceMetricsServer();

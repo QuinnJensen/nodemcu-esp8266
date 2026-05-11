@@ -20,8 +20,9 @@ volatile uint32_t simTickCount   __attribute__((section(".iram.data"))) = 0;
 volatile uint32_t simOnTickCount __attribute__((section(".iram.data"))) = 0;
 
 // Variables used by ISR MUST be in DRAM (not Flash) on ESP8266.
-static volatile int32_t bresAcc  __attribute__((section(".iram.data"))) = 0;
-static volatile uint32_t rngSeed __attribute__((section(".iram.data"))) = 0x12345678;
+static volatile int32_t bresAcc            __attribute__((section(".iram.data"))) = 0;
+static volatile unsigned long gateOffAtMic __attribute__((section(".iram.data"))) = 0;
+static volatile bool ssrGateActive         __attribute__((section(".iram.data"))) = false;
 
 int requestedPowerPct = 0;
 int priorPowerPct = 0;
@@ -38,31 +39,33 @@ void initHeaterIo() {
 static void IRAM_ATTR modulatorIsr() {
   simTickCount++;
   
-  // Pure-software XORShift PRNG (100% IRAM-safe)
-  rngSeed ^= rngSeed << 13;
-  rngSeed ^= rngSeed >> 17;
-  rngSeed ^= rngSeed << 5;
-  
-  // Dither the power increment itself to create robust jitter.
-  // Using -64 to +63 range (approx +/- 6.4% on our 1000 scale).
-  // This ensures the accumulator fills at slightly different rates every tick,
-  // robustly breaking phase-lock with the 60Hz AC mains.
-  int32_t jitter = (int32_t)(rngSeed & 0x7F) - 64;
-  
-  // Multiply by 10 using shifts and adds to avoid non-IRAM math helpers
-  // (isrPowerPct * 10) == (isrPowerPct << 3) + (isrPowerPct << 1)
+  // Accumulate power. 60Hz tick = 1 full AC cycle.
+  // Multiply by 10 using shifts and adds (isrPowerPct * 10)
   uint32_t p10 = ((uint32_t)isrPowerPct << 3) + ((uint32_t)isrPowerPct << 1);
-  
-  bresAcc += (int32_t)p10 + jitter;
+  bresAcc += (int32_t)p10;
   
   if (bresAcc >= 1000) {
     bresAcc -= 1000;
-    isrOutputState = 1;
+    
+    // Assert gate high for ~18.5 ms. This ensures we span both zero-crossings
+    // of a full 60Hz AC cycle (16.67 ms) even with free-running timer drift.
     GPOS = (1 << WH_SSR_SIM_PIN);
+    gateOffAtMic = micros() + 18500UL;
+    ssrGateActive = true;
+    isrOutputState = 1;
     simOnTickCount++;
-  } else {
-    isrOutputState = 0;
+  }
+  // Note: We do NOT de-assert gate in the 'else' branch. 
+  // It is handled by the one-shot poller in the main loop.
+}
+
+void serviceModulatorOneShot() {
+  // If the gate is active, check if the one-shot window (~18.5ms) has elapsed.
+  // Using signed long math to correctly handle micros() rollover.
+  if (ssrGateActive && (long)(micros() - gateOffAtMic) >= 0) {
     GPOC = (1 << WH_SSR_SIM_PIN);
+    ssrGateActive = false;
+    isrOutputState = 0;
   }
 }
 

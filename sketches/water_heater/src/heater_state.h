@@ -6,7 +6,7 @@
 #define WH_FULL_SCALE_WATTS 1800.0f
 #define WH_NOMINAL_VRMS     120.0f
 #define WH_CAL_POINTS       10
-#define WH_MODULATOR_HZ     120UL
+#define WH_MODULATOR_HZ     60UL
 
 extern volatile uint8_t  isrPowerPct;
 extern volatile uint8_t  isrOutputState;
@@ -22,6 +22,7 @@ extern float calTable[WH_CAL_POINTS];
 
 void initHeaterIo();
 void startModulator();
+void serviceModulatorOneShot();
 void clearCalibrationTable();
 bool hasAnyCalibration();
 bool loadCalibration();
