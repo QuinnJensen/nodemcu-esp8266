@@ -23,6 +23,29 @@ static String formatHeaderLine(const String& deviceId, const String& ssid) {
 void setDisplayBodyRenderer(DisplayBodyRenderer r) { sBody = r; }
 void setDisplayPortalAp(const char* ap) { if (ap && ap[0]) sPortalAp = ap; }
 
+void showOtaProgress(const char* label, unsigned int progress, unsigned int total) {
+  display.clearDisplay();
+  display.setTextColor(SSD1306_WHITE);
+  display.setTextSize(1);
+  display.setCursor(0, 0);  display.print("OTA Update");
+  display.setCursor(0, 14); display.print(label ? label : "Progress");
+
+  // Progress bar
+  display.drawRect(0, 30, 128, 12, SSD1306_WHITE);
+  if (total > 0) {
+    int barWidth = (progress * 124) / total;
+    if (barWidth > 124) barWidth = 124;
+    display.fillRect(2, 32, barWidth, 8, SSD1306_WHITE);
+    
+    // Percentage
+    int pct = (progress * 100) / total;
+    display.setCursor(0, 48); display.print(pct); display.print("%");
+    display.print(" ("); display.print(progress/1024); 
+    display.print("/"); display.print(total/1024); display.print(" KB)");
+  }
+  display.display();
+}
+
 void setBlueLed(bool on) {
   digitalWrite(blueLedPin, on ? LOW : HIGH);
 }

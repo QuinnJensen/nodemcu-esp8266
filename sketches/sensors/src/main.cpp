@@ -19,6 +19,7 @@
 #include "scheduler.h"
 #include "mqtt_commands.h"
 #include "console_log.h"
+#include "ota_update.h"
 
 void registerSensorsUiHooks();
 
@@ -83,6 +84,7 @@ void setup() {
   initSensorBus();
   loadSensorNames();
   initMqttClient();
+  initOtaUpdate();
 
   runStartupPortalIfNeeded("sens");
 
@@ -92,6 +94,7 @@ void setup() {
 }
 
 void loop() {
+  serviceOtaUpdate();
   serviceWifiPortal();
   serviceMainWebUi();
   serviceMetricsServer();

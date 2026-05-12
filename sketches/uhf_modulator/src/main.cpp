@@ -15,6 +15,7 @@
 
 #include "uhf_codec.h"
 #include "uhf_mqtt.h"
+#include "ota_update.h"
 #ifdef SHARED_LIB_USE_ONEWIRE
 #include "sensor_bus.h"
 #include "sensor_names.h"
@@ -89,6 +90,8 @@ void setup() {
   loadCodes();
 
   initMqttClient();
+  initOtaUpdate();
+
   runStartupPortalIfNeeded("uhf");
 
   startMainWebUi();
@@ -105,6 +108,7 @@ extern bool pendingScan;
 #endif
 
 void loop() {
+  serviceOtaUpdate();
   serviceWifiPortal();
   serviceMainWebUi();
   serviceMetricsServer();

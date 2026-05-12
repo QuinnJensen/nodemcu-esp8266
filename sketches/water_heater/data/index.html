@@ -202,7 +202,7 @@ async function postScan(){await postForm('/api/sensors/scan',{});setTimeout(refr
 function renderSettings(){
   if(state.settingsRendered)return;state.settingsRendered=true;
   const c=state.config||{};const s=state.status||{};const sensors=s.sensors||[];
-  const snRows=sensors.length?sensors.map(x=>`<tr><td>${x.index}</td><td class='mono'>${esc(x.address)}</td><td><form class='row' onsubmit='return renameSensor(event,${x.index})'><input name='name' value='${esc(x.name)}' maxlength='31' style='max-width:160px;padding:8px 10px'><button class='btn btn-action' type='submit'>Save</button></form></td></tr>`).join(''):`<tr><td colspan='3' class='muted'>No sensors. Run a scan on Temperatures page.</td></tr>`;
+  const snRows=sensors.length?sensors.map(x=>`<tr><td>${x.index}</td><td class='mono'>${esc(x.address)}</td><td><form class='row' onsubmit='return renameSensor(event,${x.index})'><input name='name' value='${esc(x.name)}' maxlength='31' style='max-width:160px;padding:8px 10px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:10px'><button class='btn' type='submit'>Save</button></form></td></tr>`).join(''):`<tr><td colspan='3' class='muted'>No sensors. Run a scan on Temperatures page.</td></tr>`;
   document.getElementById('page-settings').innerHTML=
     `<div class='card' style='grid-column:1/-1'><h3>Sensor Names</h3><p class='muted small'>Names are persisted by address. Live readings update automatically.</p><table class='table'><thead><tr><th>#</th><th>Address</th><th>Rename</th></tr></thead><tbody>${snRows}</tbody></table></div>`+
     `<div class='card'><h3>MQTT &amp; Prometheus</h3><form onsubmit='return saveServices(event)'>`+

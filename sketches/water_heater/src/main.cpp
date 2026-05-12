@@ -15,6 +15,7 @@
 
 #include "heater_state.h"
 #include "heater_mqtt.h"
+#include "ota_update.h"
 #ifdef SHARED_LIB_USE_ONEWIRE
 #include "sensor_bus.h"
 #include "sensor_names.h"
@@ -88,6 +89,13 @@ void setup() {
 
   loadCalibration();
   initMqttClient();
+  initOtaUpdate();
+
+  // Safety: halt SSR during OTA updates
+  setOtaStartCallback([]() {
+    isrThermalHalt = true;
+    consoleLog(CLOG_WARN, "OTA: Halting SSR for safety");
+  });
 
   runStartupPortalIfNeeded("heat");
 
@@ -109,6 +117,7 @@ extern bool pendingScan;
 
 void loop() {
   serviceModulatorOneShot();
+  serviceOtaUpdate();
   serviceWifiPortal();
   serviceMainWebUi();
   serviceMetricsServer();

@@ -17,6 +17,7 @@ void kickActivitySpinner(unsigned long durationMs);
 void pulseSpinnerDot(unsigned long durationMs);
 void showPortalScreen(const char* ssid = nullptr);
 void showStartupReconfigCountdown(uint8_t secondsLeft);
+void showOtaProgress(const char* label, unsigned int progress, unsigned int total);
 void setBlueLed(bool on);
 void flashBlueLed(unsigned int onMs);
 void setDisplayBodyRenderer(DisplayBodyRenderer r);
