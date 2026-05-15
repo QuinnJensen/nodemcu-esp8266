@@ -24,8 +24,18 @@
 
 ### 3.2. Runtime Architecture
 * **Strict Non-Blocking:** All network (MQTT, WiFi) and hardware (Water Probe, SSR Modulator) logic must be asynchronous state machines. Never use `delay()` in the `loop()`.
-* **Resource Serialization:** ESP8266 web fetches must be serialized (single-flight) to prevent sluggishness under concurrent HTTP requests.
-* **Async SSR Control:** High-frequency switching (e.g., Water Heater SSR) uses Timer1 interrupts or Bresenham-style algorithms to avoid jitter from loop latency.
+* **Resource Serialization:** ESP8266 web fetches must be serialized (single-flight) to prevent sluggishness.
+* **Async MQTT Handshake:** MQTT connections MUST use a non-blocking TCP handshake (short initial timeout + polling) to prevent loop freezes during network outages.
+* **JSON Streaming:** Large API responses MUST use direct streaming (`serializeJson(doc, client)`) instead of buffering in a `String` to prevent heap exhaustion.
+* **Stack Hardening:** Large JSON documents (>= 1KB) MUST be heap-allocated (`DynamicJsonDocument`) to prevent stack overflows on the fragile 4KB ESP8266 stack.
+* **60Hz Full-Cycle SSR Control:** High-frequency switching uses a 60Hz Bresenham algorithm to drive full AC cycles. Gate pulses are extended (~18.5ms) using a main-loop one-shot to reliably span zero-crossings without hardware detection.
+* **IRAM-Safe ISRs:** All ISR code MUST be 100% self-contained in IRAM. Avoid multiplication (`*`) as it calls non-IRAM software helpers; use bitwise shifts (`<<`, `>>`) instead.
+* **DRAM ISR Data:** All variables accessed within an ISR MUST be explicitly placed in DRAM using `__attribute__((section(".iram.data")))` to prevent crashes during Flash memory lockouts (e.g., during LittleFS writes or sensor scans).
+
+### 3.4. Update & Management
+* **Dual-Strategy OTA:** All mission sketches support both `ArduinoOTA` (Network Push) for development and `ESP8266HTTPUpdateServer` (Web Upload) for production.
+* **Safety Gating:** High-power hardware (SSR) MUST be forced to zero via the `setOtaStartCallback()` before any OTA update proceeds.
+* **Persistent Naming:** 1-Wire sensors are identified by 64-bit ROM addresses and assigned human-readable names persisted in `sensors.json` via the shared `sensor_names` module.
 
 ### 3.3. UI Design Principles
 * **Single-Request Web UI:** All CSS and JS are inlined into `index.html` to minimize HTTP overhead on the ESP8266.
