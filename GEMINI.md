@@ -24,29 +24,31 @@
 
 ### 3.2. Runtime Architecture
 * **Strict Non-Blocking:** All network (MQTT, WiFi) and hardware (Water Probe, SSR Modulator) logic must be asynchronous state machines. Never use `delay()` in the `loop()`.
-* **Resource Serialization:** ESP8266 web fetches must be serialized (single-flight) to prevent sluggishness.
-* **Async MQTT Handshake:** MQTT connections MUST use a non-blocking TCP handshake (short initial timeout + polling) to prevent loop freezes during network outages.
-* **JSON Streaming:** Large API responses MUST use direct streaming (`serializeJson(doc, client)`) instead of buffering in a `String` to prevent heap exhaustion.
+* **Resource Serialization:** ESP8266 web fetches must be serialized (single-flight). JSON responses MUST use direct streaming (`serializeJson(doc, client)`) to prevent heap exhaustion.
+* **Async MQTT Handshake:** MQTT connections MUST use a non-blocking TCP handshake (short initial timeout + background polling) to prevent loop freezes during network outages.
 * **Stack Hardening:** Large JSON documents (>= 1KB) MUST be heap-allocated (`DynamicJsonDocument`) to prevent stack overflows on the fragile 4KB ESP8266 stack.
-* **60Hz Full-Cycle SSR Control:** High-frequency switching uses a 60Hz Bresenham algorithm to drive full AC cycles. Gate pulses are extended (~18.5ms) using a main-loop one-shot to reliably span zero-crossings without hardware detection.
-* **IRAM-Safe ISRs:** All ISR code MUST be 100% self-contained in IRAM. Avoid multiplication (`*`) as it calls non-IRAM software helpers; use bitwise shifts (`<<`, `>>`) instead.
+* **120Hz Jitter-Free SSR Control:** High-frequency switching uses a 120Hz Timer1 ISR. Bresenham decisions happen every 2nd tick (60Hz). Gate pulses are deterministic (16.67ms) and handled entirely within the ISR to eliminate main-loop jitter.
+* **IRAM-Safe ISRs:** All ISR code MUST be 100% self-contained in IRAM. Avoid multiplication (`*`) and division (`/`); use bitwise shifts (`<<`, `>>`) instead.
 * **DRAM ISR Data:** All variables accessed within an ISR MUST be explicitly placed in DRAM using `__attribute__((section(".iram.data")))` to prevent crashes during Flash memory lockouts (e.g., during LittleFS writes or sensor scans).
 
 ### 3.4. Update & Management
-* **Dual-Strategy OTA:** All mission sketches support both `ArduinoOTA` (Network Push) for development and `ESP8266HTTPUpdateServer` (Web Upload) for production.
+* **Dual-Strategy OTA:** All mission sketches support both `ArduinoOTA` (Network Push) for development and `ESP8266HTTPUpdateServer` (Web Upload via /update portal) for production.
 * **Safety Gating:** High-power hardware (SSR) MUST be forced to zero via the `setOtaStartCallback()` before any OTA update proceeds.
 * **Persistent Naming:** 1-Wire sensors are identified by 64-bit ROM addresses and assigned human-readable names persisted in `sensors.json` via the shared `sensor_names` module.
 
 ### 3.3. UI Design Principles
 * **Single-Request Web UI:** All CSS and JS are inlined into `index.html` to minimize HTTP overhead on the ESP8266.
 * **Adaptive Polling:** The Web UI implements adaptive backoff; it slows down polling on failure and recovers on success to protect MCU stability.
-* **OLED Visual Language:** Consistent use of the top-right spinner to indicate MQTT/Network activity and a bottom status line for transient system messages.
+* **OLED Visual Language:** Consistent use of the top-right spinner to indicate MQTT/Network activity and a bottom status line for transient system messages. The bottom line should default to displaying the device IP address when connected.
 
 ## 4. Hardware Pin Assignments
 * **A0:** Water Probe (Analog input).
 * **D0:** Service Barrel Level Probe.
-* **Control Output:** SSR Relay (SPST-NO 25A) for system switching.
-* **OneWire Bus:** Typically GPIO14 (D5), but check `pins_and_constants.h` per sketch.
+* **D1:** SSR Relay Control (Safe I/O pin, no SPI conflict).
+* **D2:** OneWire Bus (DS18B20).
+* **D3:** Force-Portal/Reconfig Button (GPIO0).
+* **D4:** Onboard Status LED (Blue).
+* **D5/D6:** I2C Bus (SSD1306 OLED).
 
 ## 5. Safety & Integrity
 * **Reconfig Gateway:** Hold the FLASH button (GPIO0) during boot to force the WiFi/MQTT config portal.
