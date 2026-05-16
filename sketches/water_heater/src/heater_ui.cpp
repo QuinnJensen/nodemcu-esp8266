@@ -215,7 +215,6 @@ void registerHeaterUiHooks() {
   setMetricsNamePrefix("wh");
   setMetricsExtra(heaterMetricsExtra);
   setDisplayBodyRenderer(heaterBody);
-  setDisplayPortalAp("WaterHeaterSetup");
   setWebStatusJsonFn(heaterStatusJson);
   setWebConfigJsonFn(heaterConfigJson);
   setWebConsoleHelpFn(heaterHelp);

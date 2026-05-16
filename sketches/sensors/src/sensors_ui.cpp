@@ -214,7 +214,6 @@ void registerSensorsUiHooks() {
   setMetricsNamePrefix("temp");
   setMetricsExtra(sensorsMetricsExtra);
   setDisplayBodyRenderer(sensorsDisplayBody);
-  setDisplayPortalAp("TempSensorSetup");
   setWebStatusJsonFn(sensorsStatusJson);
   setWebConfigJsonFn(sensorsConfigJson);
   setWebConsoleHelpFn(sensorsHelp);

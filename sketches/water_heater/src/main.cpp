@@ -50,11 +50,11 @@ static void onMqttPublish(const char* topic, const char* payload, size_t len, bo
 
 void setup() {
   Serial.begin(115200);
-  delay(50);
+  delay(100);
+  Serial.println("\n\n--- HEATER BOOT ---");
   bootMillis = millis();
 
-  startModulator();              // Timer1 SSR Bresenham starts immediately
-
+  Serial.println("[BOOT] Initializing Display...");
   initDisplayUi();
   registerHeaterUiHooks();
   setStatusMessage("booting", 1500);
@@ -77,16 +77,23 @@ void setup() {
   setMqttConnectedHandler(onMqttConnected);
   setMqttPublishLogger(onMqttPublish);
 
-  if (!LittleFS.begin()) setStatusMessage("LittleFS fail", 3000);
+  Serial.println("[BOOT] Initializing LittleFS...");
+  if (!LittleFS.begin()) {
+    Serial.println("[BOOT] LittleFS FAIL!");
+    setStatusMessage("LittleFS fail", 3000);
+  }
 
+  Serial.println("[BOOT] Loading Config...");
   loadConfig();
   setupTimeHelpers();
 
 #ifdef SHARED_LIB_USE_ONEWIRE
+  Serial.println("[BOOT] Initializing Sensors...");
   initSensorBus();
   loadSensorNames();
 #endif
 
+  Serial.println("[BOOT] Initializing MQTT...");
   loadCalibration();
   initMqttClient();
   initOtaUpdate();
@@ -97,8 +104,10 @@ void setup() {
     consoleLog(CLOG_WARN, "OTA: Halting SSR for safety");
   });
 
+  Serial.println("[BOOT] Starting Wifi Portal...");
   runStartupPortalIfNeeded("heat");
 
+  Serial.println("[BOOT] Starting Services...");
   startMainWebUi();
   startMetricsServer();
   startMqttIfWifiReady();
@@ -106,7 +115,9 @@ void setup() {
   lastCommandMs = millis();
   powerLevelChangedMs = millis();
   updatePowerValues(0);
+  startModulator();              // Timer1 SSR Bresenham starts now
   setStatusMessage("heater ready", 2000);
+  Serial.println("[BOOT] Complete.");
 }
 
 static unsigned long lastRssiMs = 0;

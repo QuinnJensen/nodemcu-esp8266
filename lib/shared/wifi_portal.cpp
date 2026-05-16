@@ -60,6 +60,11 @@ void startPortalAndConnect(bool forcePortal, const char* ssidSuffix) {
   wm.addParameter(&pDeviceId);
   wm.addParameter(&pPromPort);
   portalActive = true;
+  
+  // Pre-set the AP name in the display UI so it's correct from the very first frame
+  extern void setDisplayPortalAp(const char* ap); 
+  setDisplayPortalAp(ssid);
+
   bool ok;
   if (forcePortal) ok = wm.startConfigPortal(ssid);
   else ok = wm.autoConnect(ssid);

@@ -89,6 +89,9 @@ void showPortalScreen(const char* ssid) {
 }
 
 void renderDisplay() {
+  static uint32_t renderCount = 0;
+  if (++renderCount % 10 == 0) Serial.println("[UI] renderDisplay");
+  
   display.clearDisplay();
   display.setTextColor(SSD1306_WHITE);
   display.setTextSize(1);
@@ -114,6 +117,7 @@ void renderDisplay() {
     if (msg.length() > 21) msg = msg.substring(0, 21);
     display.print(msg);
   }
+
   display.display();
 }
 
@@ -144,6 +148,7 @@ void showStartupReconfigCountdown(uint8_t secondsLeft) {
 
 void initDisplayUi() {
   Wire.begin(i2csda, i2cscl);
+  Wire.setClock(100000); // 100kHz standard
   if (!display.begin(SSD1306_SWITCHCAPVCC, oledaddr)) {
     Serial.println("OLED init failed");
     for (;;) delay(1000);

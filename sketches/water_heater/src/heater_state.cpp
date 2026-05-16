@@ -4,7 +4,7 @@
 #include <LittleFS.h>
 #include "display_ui.h"
 
-#define WH_SSR_SIM_PIN D7
+#define WH_SSR_SIM_PIN D1
 #define WH_CAL_FILE "/cal.json"
 #define WH_TIMER1_DIVIDER TIM_DIV16
 #define WH_TIMER1_TICKS ((5000000UL / WH_MODULATOR_HZ) - 1)
@@ -34,31 +34,33 @@ void initHeaterIo() {
 }
 
 static void IRAM_ATTR modulatorIsr() {
+  static bool pinInited = false;
+  if (!pinInited) {
+    pinMode(WH_SSR_SIM_PIN, OUTPUT);
+    pinInited = true;
+  }
   simTickCount++;
   
   // Accumulate power. 60Hz tick = 1 full AC cycle.
-  // Direct Bresenham on 100 scale as per redesign document.
   bresAcc += (int32_t)isrPowerPct;
   
   if (bresAcc >= 100) {
     bresAcc -= 100;
     
-    // Safety check: only fire if the thermal watchdog hasn't tripped.
-    // If halted, the gate remains at zero.
     if (!isrThermalHalt) {
-      // Assert gate high for ~18.5 ms to span both zero-crossings.
-      GPOS = (1 << WH_SSR_SIM_PIN);
+      digitalWrite(WH_SSR_SIM_PIN, HIGH);
       gateOffAtMic = micros() + 18500UL;
       ssrGateActive = true;
       isrOutputState = 1;
       simOnTickCount++;
+      if (simOnTickCount % 60 == 0) Serial.println("[ISR] Gate HIGH");
     }
   }
 }
 
 void serviceModulatorOneShot() {
   if (ssrGateActive && (long)(micros() - gateOffAtMic) >= 0) {
-    GPOC = (1 << WH_SSR_SIM_PIN);
+    digitalWrite(WH_SSR_SIM_PIN, LOW);
     ssrGateActive = false;
     isrOutputState = 0;
   }

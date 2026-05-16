@@ -176,7 +176,6 @@ void registerUhfUiHooks() {
   setMetricsNamePrefix("uhf");
   setMetricsExtra(uhfMetricsExtra);
   setDisplayBodyRenderer(uhfBody);
-  setDisplayPortalAp("UHFModSetup");
   setWebStatusJsonFn(uhfStatusJson);
   setWebConfigJsonFn(uhfConfigJson);
   setWebConsoleHelpFn(uhfHelp);
