@@ -109,13 +109,17 @@ void renderDisplay() {
 
   if (sBody) sBody();
 
-  // Bottom status line — last status message, briefly
+  // Bottom line — IP address or status message
+  display.drawFastHLine(0, 55, 128, SSD1306_WHITE);
+  display.setCursor(0, 57);
   if (millis() < statusMsgUntilMs && lastStatusMsg.length()) {
-    display.drawFastHLine(0, 55, 128, SSD1306_WHITE);
-    display.setCursor(0, 57);
     String msg = lastStatusMsg;
     if (msg.length() > 21) msg = msg.substring(0, 21);
     display.print(msg);
+  } else if (WiFi.isConnected()) {
+    display.print(WiFi.localIP().toString());
+  } else {
+    display.print("no ip");
   }
 
   display.display();
