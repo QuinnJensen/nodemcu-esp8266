@@ -97,6 +97,7 @@ button,input{font:inherit}
       <button data-page="console">Console</button>
       <button data-page="settings">Settings</button>
       <button data-page="files">LittleFS Files</button>
+      <button data-page="system">System</button>
     </div>
   </aside>
   <main class="main">
@@ -116,6 +117,7 @@ button,input{font:inherit}
     <section id="page-console"   class="page grid hidden"></section>
     <section id="page-settings"  class="page grid hidden"></section>
     <section id="page-files"     class="page grid hidden"></section>
+    <section id="page-system"    class="page grid hidden"></section>
   </main>
 </div>
 <div id="file-modal" class="modal">
@@ -240,9 +242,29 @@ function renderFiles(){if(state.filesLoaded)return;state.filesLoaded=true;const 
 function viewFile(name){const path=name.startsWith('/')?name:'/'+name;document.getElementById('modal-filename').textContent=path;document.getElementById('modal-content').textContent='Loading...';document.getElementById('file-modal').style.display='block';state.modalOpen=true;fetch('/api/fs/file?path='+encodeURIComponent(path),{cache:'no-store'}).then(r=>r.text()).then(t=>{document.getElementById('modal-content').textContent=t;}).catch(()=>{document.getElementById('modal-content').textContent='Error loading file.';});}
 function closeFileModal(){document.getElementById('file-modal').style.display='none';state.modalOpen=false;}
 
+// System
+function renderSystem() {
+  const s = state.status || {};
+  document.getElementById('page-system').innerHTML = 
+    `<div class='card'><h3>Firmware Update (OTA)</h3>` +
+      `<p>Upload a new firmware or filesystem binary directly to the device.</p>` +
+      `<div style='margin:20px 0;padding:20px;border:2px dashed var(--line);border-radius:12px;text-align:center'>` +
+        `<a href='/update' class='btn' style='display:inline-block'>Open Update Portal</a>` +
+      `</div>` +
+      `<p class='small muted'>Note: The heater SSR will be automatically disabled during the update for safety.</p>` +
+    `</div>` +
+    `<div class='card'><h3>Device Information</h3>` +
+      `<p><b>ID:</b> ${esc(s.id)}</p>` +
+      `<p><b>Chip ID:</b> <span class='mono'>${String(s.chipid || 'unknown').toUpperCase()}</span></p>` +
+      `<p><b>Build:</b> <span class='mono'>${esc(s.build_version)}</span></p>` +
+      `<p><b>Free Heap:</b> ${s.freeheap} bytes</p>` +
+      `<p><b>Uptime:</b> ${Math.floor((s.uptime_ms||0)/1000)}s</p>` +
+    `</div>`;
+}
+
 async function refreshAll(){try{state.config=await fetchJson('/api/config');state.status=await fetchJson('/api/status');const freshPrint=configFingerprint(state.config);if(state.configSnapshot && freshPrint!==state.configSnapshot){if(state.settingsRendered)injectStaleConfigBanner();}else{state.configSnapshot=freshPrint;}renderChrome();renderPages();}catch(e){console.warn(e);}}
-function renderPages(){renderDashboard();renderControl();renderCal();renderTemps();renderSettings();showPage(state.page);}
-function showPage(name){state.page=name;document.querySelectorAll('.page').forEach(p=>p.classList.add('hidden'));const p=document.getElementById('page-'+name);if(p)p.classList.remove('hidden');document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===name));const titles={dashboard:['Dashboard','Live heater state'],control:['Control','Set the heater power'],cal:['Calibration','Power-table calibration'],temps:['Temperatures','Optional 1-Wire DS18B20 sensors'],console:['Console','Recent device events and command entry'],settings:['Settings','MQTT broker, topics, identity, timezone'],files:['Files','Inspect device storage']};document.getElementById('page-title').textContent=(titles[name]||['',''])[0];document.getElementById('page-subtitle').textContent=(titles[name]||['',''])[1];if(name==='console')renderConsole();else stopConsolePoll();if(name==='files')renderFiles();}
+function renderPages(){renderDashboard();renderControl();renderCal();renderTemps();renderSettings();renderSystem();showPage(state.page);}
+function showPage(name){state.page=name;document.querySelectorAll('.page').forEach(p=>p.classList.add('hidden'));const p=document.getElementById('page-'+name);if(p)p.classList.remove('hidden');document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===name));const titles={dashboard:['Dashboard','Live heater state'],control:['Control','Set the heater power'],cal:['Calibration','Power-table calibration'],temps:['Temperatures','Optional 1-Wire DS18B20 sensors'],console:['Console','Recent device events and command entry'],settings:['Settings','MQTT broker, topics, identity, timezone'],files:['Files','Inspect device storage'],system:['System','Updates and device info']};document.getElementById('page-title').textContent=(titles[name]||['',''])[0];document.getElementById('page-subtitle').textContent=(titles[name]||['',''])[1];if(name==='console')renderConsole();else stopConsolePoll();if(name==='files')renderFiles();if(name==='system')renderSystem();}
 document.querySelectorAll('.nav button').forEach(b=>b.addEventListener('click',()=>showPage(b.dataset.page)));
 function pollTick(){if(state.busy||state.modalOpen){setTimeout(pollTick,2000);return;}refreshAll().finally(()=>setTimeout(pollTick,state.poll.interval));}
 pollTick();

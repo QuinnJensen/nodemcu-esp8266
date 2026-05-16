@@ -72,6 +72,7 @@ static void handleApiStatus() {
   doc["last_status"]     = lastStatusMsg;
   doc["last_rx_type"]    = lastRxType;
   doc["build_version"]   = buildVersion;
+  doc["chipid"]          = String(ESP.getChipId(), HEX);
   doc["timezone"]        = config.timezone;
   String ts = currentTimestampString();
   if (ts.length()) doc["timestamp"] = ts;
