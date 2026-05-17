@@ -119,7 +119,9 @@ static void heaterStatusJson(JsonDocument& doc) {
     s["name"]  = sensorNames[i];
     s["address"] = sensorAddressString(i);
     s["connected"] = sensorPresent[i];
-    if (!isnan(sensorTempsC[i])) {
+    if (isnan(sensorTempsC[i])) {
+      s["tempc"] = nullptr;
+    } else {
       s["tempc"] = sensorTempsC[i];
       s["tempf"] = sensorTempsC[i] * 9.0f / 5.0f + 32.0f;
     }
@@ -181,6 +183,25 @@ static void handleApiCalPurge() {
 }
 
 #ifdef SHARED_LIB_USE_ONEWIRE
+static void handleApiTemps() {
+  DynamicJsonDocument doc(2048);
+  doc["sensorcount"]        = sensorCount;
+  doc["simulated"]          = useFakeSensors;
+  doc["last_sample_ms_age"] = lastSensorSampleMs > 0 ? (millis() - lastSensorSampleMs) : 0;
+  doc["last_rescan_ms_age"] = lastSensorRescanMs > 0 ? (millis() - lastSensorRescanMs) : 0;
+  JsonArray sensors = doc.createNestedArray("sensors");
+  for (uint8_t i = 0; i < sensorCount; i++) {
+    JsonObject s = sensors.createNestedObject();
+    s["index"]     = i + 1;
+    s["name"]      = sensorNames[i];
+    s["address"]   = sensorAddressString(i);
+    s["connected"] = sensorPresent[i];
+    if (isnan(sensorTempsC[i])) s["tempc"] = nullptr;
+    else s["tempc"] = sensorTempsC[i];
+  }
+  webSendJsonDoc(doc);
+}
+
 static void handleApiScanPost() {
   webRequestSensorScan = true;
   setStatusMessage("scan queued", 1200);
@@ -206,6 +227,7 @@ static void heaterRoutes() {
   webServer.on("/api/heater/calibrate", HTTP_POST, handleApiCalPost);
   webServer.on("/api/heater/calibrate/purge", HTTP_POST, handleApiCalPurge);
 #ifdef SHARED_LIB_USE_ONEWIRE
+  webServer.on("/api/temps",          HTTP_GET,  handleApiTemps);
   webServer.on("/api/sensors/scan",   HTTP_POST, handleApiScanPost);
   webServer.on("/api/sensors/rename", HTTP_POST, handlePostSensorRename);
 #endif

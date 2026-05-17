@@ -128,10 +128,14 @@ button,input{font:inherit}
 </div>
 <script>
 const POLL_BASE=8000;
-const state={status:null,config:null,configSnapshot:null,console:{lastSeq:0,timer:null,history:[],histIdx:-1,autoscroll:true},poll:{interval:POLL_BASE},page:'dashboard',busy:false,modalOpen:false,filesLoaded:false,settingsRendered:false};
+const state={status:null,temps:null,config:null,configSnapshot:null,console:{lastSeq:0,timer:null,history:[],histIdx:-1,autoscroll:true},poll:{interval:POLL_BASE},page:'dashboard',busy:false,modalOpen:false,filesLoaded:false,settingsRendered:false};
 const esc=s=>String(s??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
 async function fetchJson(u){const r=await fetch(u,{cache:'no-store'});if(!r.ok)throw new Error(u);return r.json();}
 const postForm=(u,o)=>{const fd=new URLSearchParams();Object.entries(o).forEach(([k,v])=>fd.append(k,v));return fetch(u,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:fd.toString()});};
+async function fetchLiveData(){
+  state.status=await fetchJson('/api/status');
+  try{state.temps=await fetchJson('/api/temps');}catch(e){state.temps={sensors:state.status.sensors||[]};}
+}
 function configFingerprint(c){if(!c)return '';return JSON.stringify({h:c.mqtthost||'',p:c.mqttport??0,b:c.basetopic||'',d:c.deviceid||'',pp:c.prometheusport??0,tz:c.timezone||''});}
 function snapshotConfig(){state.configSnapshot=configFingerprint(state.config);}
 function injectStaleConfigBanner(){if(document.getElementById('stale-config-banner'))return;const page=document.getElementById('page-settings');if(!page)return;const banner=document.createElement('div');banner.id='stale-config-banner';banner.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;margin-bottom:14px;background:rgba(217,164,65,.13);border:1px solid rgba(217,164,65,.4);border-radius:12px;font-size:14px;color:#efc374;grid-column:1/-1';banner.innerHTML=`<span>\u26a0 Settings were changed by another session.</span><span style='display:flex;gap:8px;flex-shrink:0'><button class='btn secondary' style='font-size:13px;padding:6px 12px' onclick='forceRenderSettings()'>Reload Settings</button></span>`;page.insertBefore(banner,page.firstChild);}
@@ -201,12 +205,45 @@ function renderTemps(){
     `</div>`;
 }
 async function postScan(){await postForm('/api/sensors/scan',{});setTimeout(refreshAll,1500);}
+function renderSensorNamesTable(rebuild=true){
+  const tbody=document.getElementById('sn-tbody');
+  if(!tbody)return;
+  const sensors=(state.temps||{}).sensors||[];
+  if(rebuild){
+    tbody.innerHTML=sensors.length
+      ?sensors.map(s=>{
+          const c=s.tempc===null?'-':Number(s.tempc).toFixed(1)+'\u00b0C / '+tempF(s.tempc)+'\u00b0F';
+          return `<tr data-idx='${s.index}'>`+
+            `<td>${s.index}</td>`+
+            `<td class='mono'>${esc(s.address)}</td>`+
+            `<td>${esc(s.name)}</td>`+
+            `<td class='mono small'>${s.connected?c:'disconnected'}</td>`+
+            `<td><form class='row' onsubmit='return renameSensor(event,${s.index})'><input name='name' value='${esc(s.name)}' maxlength='31' style='max-width:160px;padding:8px 10px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:10px'><button class='btn' type='submit'>Save</button></form></td>`+
+          `</tr>`;
+        }).join('')
+      :`<tr><td colspan='5' class='muted'>No sensors. Run a scan on Temperatures page.</td></tr>`;
+    return;
+  }
+  const byIdx={};
+  sensors.forEach(s=>byIdx[s.index]=s);
+  tbody.querySelectorAll('tr[data-idx]').forEach(tr=>{
+    const s=byIdx[tr.dataset.idx];
+    if(!s)return;
+    const td=tr.cells[3]; // Cell index 3 (0=#, 1=Address, 2=Current Name, 3=Temp)
+    if(!td)return;
+    const c=s.tempc===null?'-':Number(s.tempc).toFixed(1)+'\u00b0C / '+tempF(s.tempc)+'\u00b0F';
+    const newText=s.connected?c:'disconnected';
+    if(td.textContent!==newText){
+      td.textContent=newText;
+      td.className='mono small '+(s.connected?'':'muted');
+    }
+  });
+}
 function renderSettings(){
   if(state.settingsRendered)return;state.settingsRendered=true;
-  const c=state.config||{};const s=state.status||{};const sensors=s.sensors||[];
-  const snRows=sensors.length?sensors.map(x=>`<tr><td>${x.index}</td><td class='mono'>${esc(x.address)}</td><td><form class='row' onsubmit='return renameSensor(event,${x.index})'><input name='name' value='${esc(x.name)}' maxlength='31' style='max-width:160px;padding:8px 10px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:10px'><button class='btn' type='submit'>Save</button></form></td></tr>`).join(''):`<tr><td colspan='3' class='muted'>No sensors. Run a scan on Temperatures page.</td></tr>`;
+  const c=state.config||{};
   document.getElementById('page-settings').innerHTML=
-    `<div class='card' style='grid-column:1/-1'><h3>Sensor Names</h3><p class='muted small'>Names are persisted by address. Live readings update automatically.</p><table class='table'><thead><tr><th>#</th><th>Address</th><th>Rename</th></tr></thead><tbody>${snRows}</tbody></table></div>`+
+    `<div class='card' style='grid-column:1/-1'><h3>Sensor Names</h3><p class='muted small'>Names are persisted by address. Live readings update automatically.</p><table class='table'><thead><tr><th>#</th><th>Address</th><th>Current Name</th><th>Temp</th><th>Rename</th></tr></thead><tbody id='sn-tbody'></tbody></table></div>`+
     `<div class='card'><h3>MQTT &amp; Prometheus</h3><form onsubmit='return saveServices(event)'>`+
       `<div class='field'><label>MQTT host</label><input name='mqtthost' value='${esc(c.mqtthost||'')}'></div>`+
       `<div class='field'><label>MQTT port</label><input name='mqttport' type='number' value='${c.mqttport??1883}'></div>`+
@@ -216,6 +253,7 @@ function renderSettings(){
       `<button class='btn' type='submit'>Save</button>`+
     `</form><p class='small muted'>Topics: <span class='mono'>${esc((c.topics||{}).command||'-')}</span> / <span class='mono'>${esc((c.topics||{}).status||'-')}</span></p></div>`+
     `<div class='card'><h3>Timezone</h3><form onsubmit='return saveTz(event)'><div class='field'><label>POSIX TZ</label><input name='timezone' value='${esc(c.timezone||'')}'></div><button class='btn' type='submit'>Save</button></form></div>`;
+  renderSensorNamesTable(true);
 }
 function forceRenderSettings(){state.settingsRendered=false;renderSettings();}
 async function saveServices(ev){ev.preventDefault();const fd=new FormData(ev.target);await postForm('/api/config/services',Object.fromEntries(fd));state.config=await fetchJson('/api/config');state.configSnapshot=configFingerprint(state.config);await refreshAll();return false;}
@@ -266,7 +304,28 @@ async function refreshAll(){try{state.config=await fetchJson('/api/config');stat
 function renderPages(){renderDashboard();renderControl();renderCal();renderTemps();renderSettings();renderSystem();showPage(state.page);}
 function showPage(name){state.page=name;document.querySelectorAll('.page').forEach(p=>p.classList.add('hidden'));const p=document.getElementById('page-'+name);if(p)p.classList.remove('hidden');document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===name));const titles={dashboard:['Dashboard','Live heater state'],control:['Control','Set the heater power'],cal:['Calibration','Power-table calibration'],temps:['Temperatures','Optional 1-Wire DS18B20 sensors'],console:['Console','Recent device events and command entry'],settings:['Settings','MQTT broker, topics, identity, timezone'],files:['Files','Inspect device storage'],system:['System','Updates and device info']};document.getElementById('page-title').textContent=(titles[name]||['',''])[0];document.getElementById('page-subtitle').textContent=(titles[name]||['',''])[1];if(name==='console')renderConsole();else stopConsolePoll();if(name==='files')renderFiles();if(name==='system')renderSystem();}
 document.querySelectorAll('.nav button').forEach(b=>b.addEventListener('click',()=>showPage(b.dataset.page)));
-function pollTick(){if(state.busy||state.modalOpen){setTimeout(pollTick,2000);return;}refreshAll().finally(()=>setTimeout(pollTick,state.poll.interval));}
+function stopPoll(){if(state.pollTimer){clearTimeout(state.pollTimer);state.pollTimer=null;}}
+async function pollTick(){
+  if(state.busy||state.modalOpen){setTimeout(pollTick,2000);return;}
+  try{
+    const freshConfig=await fetchJson('/api/config');
+    const freshPrint=configFingerprint(freshConfig);
+    if(state.configSnapshot && freshPrint!==state.configSnapshot){
+      if(state.settingsRendered)injectStaleConfigBanner();
+    }
+    await fetchLiveData();
+    renderChrome();
+    renderDashboard();
+    renderControl();
+    renderCal();
+    renderTemps();
+    renderSensorNamesTable(false);
+    setTimeout(pollTick,state.poll.interval);
+  }catch(e){
+    console.warn(e);
+    setTimeout(pollTick,state.poll.interval);
+  }
+}
 pollTick();
 </script>
 </body></html>
