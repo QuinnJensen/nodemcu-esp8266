@@ -139,7 +139,7 @@ async function fetchLiveData(){
   state.status=await fetchJson('/api/status');
   try{state.temps=await fetchJson('/api/temps');}catch(e){state.temps={sensors:state.status.sensors||[]};}
 }
-function configFingerprint(c){if(!c)return '';return JSON.stringify({h:c.mqtthost||'',p:c.mqttport??0,cb:c.controlbasetopic||'',sb:c.sensorbasetopic||'',d:c.deviceid||'',pp:c.prometheusport??0,tz:c.timezone||''});}
+function configFingerprint(c){if(!c)return '';return JSON.stringify({h:c.mqtthost||'',p:c.mqttport??0,mcub:c.mcubasetopic||'',sb:c.sensorbasetopic||'',d:c.deviceid||'',pp:c.prometheusport??0,tz:c.timezone||''});}
 function snapshotConfig(){state.configSnapshot=configFingerprint(state.config);}
 function injectStaleConfigBanner(){if(document.getElementById('stale-config-banner'))return;const page=document.getElementById('page-settings');if(!page)return;const banner=document.createElement('div');banner.id='stale-config-banner';banner.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;margin-bottom:14px;background:rgba(217,164,65,.13);border:1px solid rgba(217,164,65,.4);border-radius:12px;font-size:14px;color:#efc374;grid-column:1/-1';banner.innerHTML=`<span>\u26a0 Settings were changed by another session.</span><span style='display:flex;gap:8px;flex-shrink:0'><button class='btn secondary' style='font-size:13px;padding:6px 12px' onclick='forceRenderSettings()'>Reload Settings</button></span>`;page.insertBefore(banner,page.firstChild);}
 function renderChrome(){const s=state.status||{};document.getElementById('badge-id').textContent=s.id||'-';document.getElementById('badge-wifi').textContent=s.wifi_connected?'up':'down';document.getElementById('badge-mqtt').textContent=s.mqtt_connected?'up':'down';if(s.build_version)document.getElementById('badge-version').textContent=s.build_version;}
@@ -250,7 +250,7 @@ function renderSettings(){
     `<div class='card'><h3>MQTT &amp; Prometheus</h3><form onsubmit='return saveServices(event)'>`+
       `<div class='field'><label>MQTT host</label><input name='mqtthost' value='${esc(c.mqtthost||'')}'></div>`+
       `<div class='field'><label>MQTT port</label><input name='mqttport' type='number' value='${c.mqttport??1883}'></div>`+
-      `<div class='field'><label>Control base topic</label><input name='controlbasetopic' value='${esc(c.controlbasetopic||'')}'></div>`+
+      `<div class='field'><label>Heater base topic</label><input name='mcubasetopic' value='${esc(c.mcubasetopic||'')}'></div>`+
       `<div class='field'><label>Sensor base topic</label><input name='sensorbasetopic' value='${esc(c.sensorbasetopic||'')}'></div>`+
       `<div class='field'><label>Device ID</label><input name='deviceid' value='${esc(c.deviceid||'')}'></div>`+
       `<div class='field'><label>Prometheus port</label><input name='prometheusport' type='number' value='${c.prometheusport??9111}'></div>`+
@@ -304,7 +304,7 @@ function renderSystem() {
     `</div>`;
 }
 
-async function refreshAll(){try{state.config=await fetchJson('/api/config');state.status=await fetchJson('/api/status');const freshPrint=configFingerprint(state.config);if(state.configSnapshot && freshPrint!==state.configSnapshot){if(state.settingsRendered)injectStaleConfigBanner();}else{state.configSnapshot=freshPrint;}renderChrome();renderPages();}catch(e){console.warn(e);}}
+async function refreshAll(){try{await fetchLiveData();state.config=await fetchJson('/api/config');const freshPrint=configFingerprint(state.config);if(state.configSnapshot && freshPrint!==state.configSnapshot){if(state.settingsRendered)injectStaleConfigBanner();}else{state.configSnapshot=freshPrint;}renderChrome();renderPages();}catch(e){console.warn(e);}}
 function renderPages(){renderDashboard();renderControl();renderCal();renderTemps();renderSettings();renderSystem();showPage(state.page);}
 function showPage(name){state.page=name;document.querySelectorAll('.page').forEach(p=>p.classList.add('hidden'));const p=document.getElementById('page-'+name);if(p)p.classList.remove('hidden');document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===name));const titles={dashboard:['Dashboard','Live heater state'],control:['Control','Set the heater power'],cal:['Calibration','Power-table calibration'],temps:['Temperatures','Optional 1-Wire DS18B20 sensors'],console:['Console','Recent device events and command entry'],settings:['Settings','MQTT broker, topics, identity, timezone'],files:['Files','Inspect device storage'],system:['System','Updates and device info']};document.getElementById('page-title').textContent=(titles[name]||['',''])[0];document.getElementById('page-subtitle').textContent=(titles[name]||['',''])[1];if(name==='console')renderConsole();else stopConsolePoll();if(name==='files')renderFiles();if(name==='system')renderSystem();}
 document.querySelectorAll('.nav button').forEach(b=>b.addEventListener('click',()=>showPage(b.dataset.page)));
