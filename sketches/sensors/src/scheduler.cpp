@@ -25,7 +25,8 @@ void runScheduledTasks() {
   }
 
   // Sensor heartbeat: scan + fire async conversion
-  if (now - lastSensorHeartbeatMs >= sensorheartbeatintervalms) {
+  // Delay if water probe is currently active to prevent LED/timing conflicts
+  if (now - lastSensorHeartbeatMs >= sensorheartbeatintervalms && !waterProbing) {
     Serial.println("sample sensors");
     scanSensors();
     requestTemperatureConversion();
