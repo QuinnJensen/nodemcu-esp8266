@@ -20,7 +20,7 @@ void publishAggregateStatus() {
     return;
   }
 
-  DynamicJsonDocument doc(2560);
+  DynamicJsonDocument doc(4096);
   doc["type"]             = "status";
   doc["id"]               = safeDeviceId();
   doc["chipid"]           = String(ESP.getChipId(), HEX);

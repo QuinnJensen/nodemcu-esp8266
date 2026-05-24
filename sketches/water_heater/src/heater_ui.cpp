@@ -184,7 +184,7 @@ static void handleApiCalPurge() {
 
 #ifdef SHARED_LIB_USE_ONEWIRE
 static void handleApiTemps() {
-  DynamicJsonDocument doc(2048);
+  DynamicJsonDocument doc(3072);
   doc["sensorcount"]        = sensorCount;
   doc["simulated"]          = useFakeSensors;
   doc["last_sample_ms_age"] = lastSensorSampleMs > 0 ? (millis() - lastSensorSampleMs) : 0;

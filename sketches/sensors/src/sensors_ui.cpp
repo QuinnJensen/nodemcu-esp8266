@@ -123,7 +123,7 @@ static bool sensorsHelp() {
 
 // ── Sensor-specific routes ─────────────────────────────────────────────────
 static void handleApiTemps() {
-  DynamicJsonDocument doc(2048);
+  DynamicJsonDocument doc(3072);
   doc["sensorcount"]        = sensorCount;
   doc["simulated"]          = useFakeSensors;
   doc["networkdetected"]    = sensorNetworkDetected;
