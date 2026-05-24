@@ -5,6 +5,7 @@
 #include "app_state.h"
 #include "app_config.h"
 #include "util.h"
+#include "console_log.h"
 
 static MqttPublishLogger sPublishLogger = nullptr;
 void setMqttPublishLogger(MqttPublishLogger fn) { sPublishLogger = fn; }
@@ -85,17 +86,27 @@ static bool serializeDocToBuffer(const JsonDocument& doc, char* buf, size_t sz, 
 
 bool publishJsonDocToTopic(const char* topic, const JsonDocument& doc, bool retained) {
   if (!mqtt.connected() || !topic || !topic[0]) return false;
-  char buffer[mqttbuffersize];
+  
+  // Use a heap-allocated buffer to prevent stack overflow (4KB is too much for ESP8266 stack)
+  char* buffer = new (std::nothrow) char[mqttbuffersize];
+  if (!buffer) {
+    consoleLog(CLOG_WARN, "[MQTT] buffer allocation failed");
+    return false;
+  }
+
   size_t n = 0;
-  if (!serializeDocToBuffer(doc, buffer, sizeof(buffer), n)) {
+  if (!serializeDocToBuffer(doc, buffer, mqttbuffersize, n)) {
     Serial.print("[MQTT] publish skipped: "); Serial.println(topic);
     if (sPublishLogger) sPublishLogger(topic, "<serialize failed>", 18, false);
+    delete[] buffer;
     return false;
   }
   bool ok = mqtt.publish(topic, reinterpret_cast<const uint8_t*>(buffer), n, retained);
   if (ok) { mqttPublishCount++; _kickSpinner(); }
   else { Serial.print("[MQTT] publish failed: "); Serial.println(topic); }
   if (sPublishLogger) sPublishLogger(topic, buffer, n, ok);
+  
+  delete[] buffer;
   return ok;
 }
 
