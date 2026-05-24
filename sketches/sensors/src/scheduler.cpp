@@ -48,6 +48,12 @@ void runScheduledTasks() {
     lastAggregateHeartbeatMs = now;
   }
 
+  static unsigned long lastSensorScroll = 0;
+  if (sensorCount > 2 && now - lastSensorScroll >= 3000) {
+    displayStartSensor = (displayStartSensor + 2) % sensorCount;
+    lastSensorScroll = now;
+  }
+
   static unsigned long lastRssiUpdate = 0;
   if (WiFi.isConnected() && now - lastRssiUpdate >= 1000) {
     lastRssi = WiFi.RSSI();
