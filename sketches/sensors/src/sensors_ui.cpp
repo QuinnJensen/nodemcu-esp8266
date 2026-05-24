@@ -44,7 +44,12 @@ static void sensorsDisplayBody() {
   display.setCursor(0, 48);
   display.print("Water ");
   if (waterProbing) display.print("[probing]");
-  else display.print(waterLevelLabel(waterLevelIndex));
+  else {
+    display.print(waterLevelLabel(waterLevelIndex));
+    display.print(" ");
+    display.print(waterVoltage, 2);
+    display.print("V");
+  }
 }
 
 // ── Metrics extras ─────────────────────────────────────────────────────────
@@ -68,6 +73,7 @@ static void sensorsMetricsExtra(String& m) {
   m += "water_probe_present{" + wb + "} " + String(waterProbePresent ? 1 : 0) + "\n";
   m += "water_valid{" + wb + "} " + String(waterValid ? 1 : 0) + "\n";
   m += "water_adc_raw{" + wb + "} " + String(waterAdcRaw) + "\n";
+  m += "water_voltage_v{" + wb + "} " + String(waterVoltage, 4) + "\n";
   m += "water_level_index{" + wb + "} " + String(int(waterLevelIndex)) + "\n";
   m += "water_heartbeat_interval_ms{" + wb + "} " + String(config.waterHeartbeatIntervalMs) + "\n";
   m += "water_last_sample_seconds{" + wb + "} " + String(lastWaterSampleMs > 0 ? ((millis() - lastWaterSampleMs) / 1000UL) : 0) + "\n";

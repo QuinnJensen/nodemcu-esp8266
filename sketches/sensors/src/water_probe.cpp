@@ -115,6 +115,7 @@ void updateWaterSample() {
       waterAdcRaw     = (uint16_t)(adcSum / adcSamples);
       waterLevelIndex = classifyWaterLevel(waterAdcRaw);
     }
+    waterVoltage      = (float)waterAdcRaw * 3.3f / 1023.0f;
     waterValid        = true;
     lastWaterSampleMs = millis();
     waterProbing      = false;
@@ -131,6 +132,7 @@ void appendWaterToJson(JsonDocument& doc) {
   water["heartbeatintervalms"] = config.waterHeartbeatIntervalMs;
   water["probe_present"]       = waterProbePresent;
   water["adc"]                 = waterAdcRaw;
+  water["voltage"]             = waterVoltage;
   water["valid"]               = waterValid;
   water["levelindex"]          = waterLevelIndex;
   water["level"]               = waterLevelLabel(waterLevelIndex);

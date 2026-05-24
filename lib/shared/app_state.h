@@ -63,6 +63,7 @@ extern String lastRxRaw;
 extern unsigned long lastWaterHeartbeatMs;
 extern unsigned long lastWaterSampleMs;
 extern uint16_t waterAdcRaw;
+extern float waterVoltage;
 extern uint8_t waterLevelIndex;
 extern bool waterValid;
 extern bool waterProbePresent;

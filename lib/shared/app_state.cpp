@@ -57,6 +57,7 @@ String lastRxRaw;
 unsigned long lastWaterHeartbeatMs     = 0;
 unsigned long lastWaterSampleMs        = 0;
 uint16_t waterAdcRaw = 0;
+float waterVoltage = 0.0f;
 uint8_t waterLevelIndex = 0;
 bool waterValid = false;
 bool waterProbePresent = false;
