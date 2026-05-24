@@ -119,12 +119,15 @@ void requestTemperatureConversion() {
 void collectTemperatureResults() {
   if (useFakeSensors || !conversionPending) return;
   conversionPending = false;
-  for (uint8_t i = 0; i < sensorCount; i++) {
+  uint8_t count = sensorCount;
+  for (uint8_t i = 0; i < count; i++) {
     yield();
+    if (!sensorPresent[i]) continue; // Skip if we already know it's missing
     float t = ds.getTempC(sensorAddresses[i]);
-    if (t == DEVICE_DISCONNECTED_C) {
+    if (t == DEVICE_DISCONNECTED_C || t < -50.0f || t > 130.0f) {
       sensorTempsC[i] = NAN;
-      sensorPresent[i] = false;
+      // Don't set sensorPresent[i] to false immediately to avoid flickering 
+      // if one read fails, but we'll use it for logic.
     } else {
       sensorTempsC[i] = t;
       sensorPresent[i] = true;
@@ -140,12 +143,13 @@ void readTemperatures() {
   ds.requestTemperatures();
   unsigned long start = millis();
   while (millis() - start < 800) { yield(); }
-  for (uint8_t i = 0; i < sensorCount; i++) {
+  uint8_t count = sensorCount;
+  for (uint8_t i = 0; i < count; i++) {
     yield();
+    if (!sensorPresent[i]) continue;
     float t = ds.getTempC(sensorAddresses[i]);
-    if (t == DEVICE_DISCONNECTED_C) {
+    if (t == DEVICE_DISCONNECTED_C || t < -50.0f || t > 130.0f) {
       sensorTempsC[i] = NAN;
-      sensorPresent[i] = false;
     } else {
       sensorTempsC[i] = t;
       sensorPresent[i] = true;
