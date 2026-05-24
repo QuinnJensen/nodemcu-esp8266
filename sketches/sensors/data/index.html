@@ -192,7 +192,7 @@ async function fetchJson(url){const r=await fetch(url,{cache:'no-store'});if(!r.
 async function fetchLiveData(){
   state.status=await fetchJson('/api/status');
   state.temps =await fetchJson('/api/temps');
-  state.water =await fetchJson('/api/water');
+  state.water =(await fetchJson('/api/water')).water;
 }
 
 function onPollSuccess(rttMs){
@@ -363,7 +363,7 @@ function renderDashboard(){
   document.getElementById('page-dashboard').innerHTML=
     `<div class='grid three'>`+
       sensorsCard+
-      `<div class='card'><div class='muted'>Water Level</div><div class='kpi'>${esc(w.level||'-')}</div><div class='small muted'>ADC ${w.adc??0}</div></div>`+
+      `<div class='card'><div class='muted'>Water Level</div><div class='kpi'>${esc(w.level||'-')}</div><div class='small muted'>ADC ${w.adc??0} &middot; ${Number(w.voltage||0).toFixed(2)}V</div></div>`+
       `<div class='card'><div class='muted'>Uptime</div><div class='kpi'>${Math.floor((s.uptime_ms||0)/1000)}s</div><div class='small muted'>RSSI ${s.rssidbm??'-'} dBm</div></div>`+
     `</div>`+
     `<div class='grid two'>`+
@@ -405,7 +405,21 @@ function renderWater(){
   const w=state.water||{};
   const cfg=state.config||{};
   const th=(cfg.water||{}).thresholds||[];
-  document.getElementById('page-water').innerHTML=`<div class='grid two'><div class='card'><h3>Live Water Probe</h3><p><b>Level:</b> ${esc(w.level||'-')}</p><p><b>Probe present:</b> ${fmtBool(!!w.probepresent)}</p><p><b>Reading valid:</b> ${fmtBool(!!w.valid)}</p><p><b>ADC:</b> ${w.adc??0}</p><p><b>Last sample age:</b> ${ageSec(w.sampleagems)}</p><div class='actions'><button class='btn btn-action' onclick="postAction('/api/water/sample')">Force Probe</button><button class='btn secondary' onclick='refreshAll()'>Refresh</button></div></div><div class='card'><h3>Thresholds</h3><p class='mono small'>noprobe: ${th[0]??'-'} | 40gal: ${th[1]??'-'} | 15-40gal: ${th[2]??'-'} | 5-15gal: ${th[3]??'-'} | 5gal: ${th[4]??'-'}</p><form class='form' onsubmit='saveWater(event)'><div class='field'><label>Heartbeat interval (ms)</label><input name='intervalms' type='number' min='1000' max='86400000' value='${(cfg.water||{}).intervalms??60000}'></div><div class='grid two'><div class='field'><label>No probe ADC</label><input name='t0' type='number' min='0' max='1023' value='${th[0]??20}'></div><div class='field'><label>40 gal ADC</label><input name='t1' type='number' min='0' max='1023' value='${th[1]??44}'></div><div class='field'><label>15-40 gal ADC</label><input name='t2' type='number' min='0' max='1023' value='${th[2]??268}'></div><div class='field'><label>5-15 gal ADC</label><input name='t3' type='number' min='0' max='1023' value='${th[3]??485}'></div><div class='field'><label>5 gal ADC</label><input name='t4' type='number' min='0' max='1023' value='${th[4]??1023}'></div></div><div class='actions'><button class='btn btn-action' type='submit'>Save Water Settings</button></div></form></div></div>`;
+  const page=document.getElementById('page-water');
+  
+  if(!page.innerHTML){
+    page.innerHTML=`<div class='grid two'><div class='card' id='water-live-card'></div><div class='card' id='water-thresh-card'></div></div>`;
+  }
+  
+  const liveEl=document.getElementById('water-live-card');
+  if(liveEl){
+    liveEl.innerHTML=`<h3>Live Water Probe</h3><p><b>Level:</b> ${esc(w.level||'-')}</p><p><b>Probe present:</b> ${fmtBool(!!w.probe_present)}</p><p><b>Reading valid:</b> ${fmtBool(!!w.valid)}</p><p><b>ADC:</b> ${w.adc??0}</p><p><b>Voltage:</b> ${Number(w.voltage||0).toFixed(2)}V</p><p><b>Last sample age:</b> ${ageSec(w.sampleagems)}</p><div class='actions'><button class='btn btn-action' onclick="postAction('/api/water/sample')">Force Probe</button><button class='btn secondary' onclick='refreshAll()'>Refresh</button></div>`;
+  }
+  
+  const threshEl=document.getElementById('water-thresh-card');
+  if(threshEl && !threshEl.contains(document.activeElement)){
+    threshEl.innerHTML=`<h3>Thresholds</h3><p class='mono small'>noprobe: ${th[0]??'-'} | 40gal: ${th[1]??'-'} | 15-40gal: ${th[2]??'-'} | 5-15gal: ${th[3]??'-'} | 5gal: ${th[4]??'-'}</p><form class='form' onsubmit='saveWater(event)'><div class='field'><label>Heartbeat interval (ms)</label><input name='intervalms' type='number' min='1000' max='86400000' value='${(cfg.water||{}).intervalms??60000}'></div><div class='grid two'><div class='field'><label>No probe ADC</label><input name='t0' type='number' min='0' max='1023' value='${th[0]??20}'></div><div class='field'><label>40 gal ADC</label><input name='t1' type='number' min='0' max='1023' value='${th[1]??44}'></div><div class='field'><label>15-40 gal ADC</label><input name='t2' type='number' min='0' max='1023' value='${th[2]??268}'></div><div class='field'><label>5-15 gal ADC</label><input name='t3' type='number' min='0' max='1023' value='${th[3]??485}'></div><div class='field'><label>5 gal ADC</label><input name='t4' type='number' min='0' max='1023' value='${th[4]??1023}'></div></div><div class='actions'><button class='btn btn-action' type='submit'>Save Water Settings</button></div></form>`;
+  }
 }
 
 function renderWifi(){
