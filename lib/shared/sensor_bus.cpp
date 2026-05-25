@@ -17,6 +17,10 @@ unsigned long conversionRequestedMs = 0;
 void initSensorBus() {
   ds.setWaitForConversion(false);
   ds.begin();
+
+  // Log power mode to UDP to help debug pull-up/wiring issues
+  bool parasitic = ds.isParasitePowerMode();
+  remotePrintf("[1-WIRE] Bus initialized. Mode: %s\n", parasitic ? "Parasitic" : "Powered (3-wire)");
 }
 
 String defaultSensorNameForAddress(const DeviceAddress addr) {
@@ -139,7 +143,8 @@ void collectTemperatureResults() {
       if (t != DEVICE_DISCONNECTED_C && t > -50.0f && t < 130.0f) break;
       retries--;
       if (retries > 0) {
-        delay(10); // Short wait before retry
+        oneWire.reset(); // Force a bus reset to clear potential noise
+        delay(15);      // Short wait for line to pull high
         yield();
       }
     }
