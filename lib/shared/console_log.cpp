@@ -4,6 +4,7 @@
 #include <ESP8266WiFi.h>
 #include <WiFiUdp.h>
 #include <stdarg.h>
+#include "util.h"
 
 #define CLOG_CAP     32
 #define CLOG_MSG_LEN 256
@@ -24,12 +25,26 @@ static uint32_t  clogSeq  = 0;
 static WiFiUDP udp;
 static const uint16_t udpPort = 5555;
 
-static void sendUdp(const char* msg, bool newline) {
+static void sendUdp(const char* type, const char* msg, bool newline) {
   if (WiFi.status() == WL_CONNECTED) {
     // Broadcast to the subnet
-    IPAddress ip = WiFi.localIP();
-    ip[3] = 255; 
-    udp.beginPacket(ip, udpPort);
+    IPAddress localIp = WiFi.localIP();
+    IPAddress broadcastIp = localIp;
+    broadcastIp[3] = 255; 
+    
+    udp.beginPacket(broadcastIp, udpPort);
+    
+    // Prefix: [id:ip:type] or [id:ip]
+    udp.write("[");
+    udp.write(safeDeviceId().c_str());
+    udp.write(":");
+    udp.write(ipToString(localIp).c_str());
+    if (type && type[0]) {
+      udp.write(":");
+      udp.write(type);
+    }
+    udp.write("] ");
+    
     udp.write(msg);
     if (newline) udp.write("\n");
     udp.endPacket();
@@ -56,13 +71,12 @@ void consoleLog(const char* type, const char* msg) {
   e.msg[sizeof(e.msg) - 1] = '\0';
   clogHead = (clogHead + 1) % CLOG_CAP;
 
-  // Mirror to Serial and UDP
+  // Mirror to Serial
   Serial.print("["); Serial.print(e.type); Serial.print("] ");
   Serial.println(e.msg);
   
-  char udpBuf[CLOG_MSG_LEN + 16];
-  snprintf(udpBuf, sizeof(udpBuf), "[%s] %s", e.type, e.msg);
-  sendUdp(udpBuf, true);
+  // Mirror to UDP with context prefix
+  sendUdp(e.type, e.msg, true);
 }
 
 void consoleLog(const char* type, const String& msg) {
@@ -71,12 +85,12 @@ void consoleLog(const char* type, const String& msg) {
 
 void remotePrint(const String& msg) {
   Serial.print(msg);
-  sendUdp(msg.c_str(), false);
+  sendUdp(nullptr, msg.c_str(), false);
 }
 
 void remotePrintln(const String& msg) {
   Serial.println(msg);
-  sendUdp(msg.c_str(), true);
+  sendUdp(nullptr, msg.c_str(), true);
 }
 
 void remotePrintf(const char* format, ...) {
@@ -86,7 +100,7 @@ void remotePrintf(const char* format, ...) {
   vsnprintf(buf, sizeof(buf), format, args);
   va_end(args);
   Serial.print(buf);
-  sendUdp(buf, false);
+  sendUdp(nullptr, buf, false);
 }
 
 uint32_t appendConsoleLogJson(JsonArray& arr, uint32_t afterSeq) {
