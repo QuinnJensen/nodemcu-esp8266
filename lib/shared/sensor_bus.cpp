@@ -129,10 +129,23 @@ void collectTemperatureResults() {
   for (uint8_t i = 0; i < count; i++) {
     yield();
     if (!sensorPresent[i]) continue;
-    float t = ds.getTempC(sensorAddresses[i]);
+
+    float t = DEVICE_DISCONNECTED_C;
+    uint8_t retries = 3;
+    
+    // Retry loop for robust reading in noisy environments
+    while (retries > 0) {
+      t = ds.getTempC(sensorAddresses[i]);
+      if (t != DEVICE_DISCONNECTED_C && t > -50.0f && t < 130.0f) break;
+      retries--;
+      if (retries > 0) {
+        delay(10); // Short wait before retry
+        yield();
+      }
+    }
 
     if (t == DEVICE_DISCONNECTED_C || t < -50.0f || t > 130.0f) {
-      remotePrintf("[1-WIRE] Read FAIL index=%d addr=%s\n", i, addressToString(sensorAddresses[i]).c_str());
+      remotePrintf("[1-WIRE] Read FAIL index=%d addr=%s after 3 tries\n", i, addressToString(sensorAddresses[i]).c_str());
       sensorTempsC[i] = NAN;
     } else {
       sensorTempsC[i] = t;
