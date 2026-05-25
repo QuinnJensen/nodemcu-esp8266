@@ -17,10 +17,6 @@ unsigned long conversionRequestedMs = 0;
 void initSensorBus() {
   ds.setWaitForConversion(false);
   ds.begin();
-
-  // Log power mode to UDP to help debug pull-up/wiring issues
-  bool parasitic = ds.isParasitePowerMode();
-  remotePrintf("[1-WIRE] Bus initialized. Mode: %s\n", parasitic ? "Parasitic" : "Powered (3-wire)");
 }
 
 String defaultSensorNameForAddress(const DeviceAddress addr) {
@@ -62,6 +58,10 @@ static void loadFakeSensors() {
 void scanSensors(bool force) {
   if (!force && lastSensorRescanMs > 0 && millis() - lastSensorRescanMs < sensorrescanintervalms) return;
   lastSensorRescanMs = millis();
+
+  // Log power mode to help debug pull-up/wiring issues. 
+  // This will appear on UDP once WiFi is connected.
+  remotePrintf("[1-WIRE] Scanning bus. Mode: %s\n", ds.isParasitePowerMode() ? "Parasite" : "Powered (3-wire)");
 
   flashBlueLed(30);
 
