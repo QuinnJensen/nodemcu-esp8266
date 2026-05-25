@@ -5,6 +5,7 @@
 #include "app_state.h"
 #include "sensor_names.h"
 #include "display_ui.h"
+#include "console_log.h"
 
 static const char* fakeSensorNames[3]     = {"sensor1", "sensor2", "sensor3"};
 static const char* fakeSensorAddresses[3] = {"28DEAD2BAD0001A1", "28DEAD2BAD0002B2", "28DEAD2BAD0003C3"};
@@ -131,8 +132,7 @@ void collectTemperatureResults() {
     float t = ds.getTempC(sensorAddresses[i]);
 
     if (t == DEVICE_DISCONNECTED_C || t < -50.0f || t > 130.0f) {
-      Serial.print("[1-WIRE] Read FAIL index="); Serial.print(i);
-      Serial.print(" addr="); Serial.println(addressToString(sensorAddresses[i]));
+      remotePrintf("[1-WIRE] Read FAIL index=%d addr=%s\n", i, addressToString(sensorAddresses[i]).c_str());
       sensorTempsC[i] = NAN;
     } else {
       sensorTempsC[i] = t;
@@ -155,8 +155,7 @@ void readTemperatures() {
     if (!sensorPresent[i]) continue;
     float t = ds.getTempC(sensorAddresses[i]);
     if (t == DEVICE_DISCONNECTED_C || t < -50.0f || t > 130.0f) {
-      Serial.print("[1-WIRE] Read FAIL (sync) index="); Serial.print(i);
-      Serial.print(" addr="); Serial.println(addressToString(sensorAddresses[i]));
+      remotePrintf("[1-WIRE] Read FAIL (sync) index=%d addr=%s\n", i, addressToString(sensorAddresses[i]).c_str());
       sensorTempsC[i] = NAN;
     } else {
       sensorTempsC[i] = t;

@@ -6,6 +6,7 @@
 #include "water_probe.h"
 #include "mqtt_publish.h"
 #include "pins_and_constants.h"
+#include "console_log.h"
 
 // Two-phase async sensor read state
 static bool waitingToCollect = false;
@@ -30,10 +31,10 @@ void runScheduledTasks() {
     // Alternate between scanning and sampling to avoid bus noise during conversion
     static bool alternateScan = true;
     if (alternateScan) {
-      Serial.println("[1-WIRE] Periodic bus rescan");
+      remotePrintln("[1-WIRE] Periodic bus rescan");
       scanSensors();
     } else {
-      Serial.println("[1-WIRE] Triggering conversion");
+      remotePrintln("[1-WIRE] Triggering conversion");
       requestTemperatureConversion();
       waitingToCollect = true;
     }
@@ -43,14 +44,14 @@ void runScheduledTasks() {
 
   // Water heartbeat: kick off a new (non-blocking) sample
   if (now - lastWaterHeartbeatMs >= config.waterHeartbeatIntervalMs) {
-    Serial.println("sample water level");
+    remotePrintln("sample water level");
     beginWaterSample();
     lastWaterHeartbeatMs = now;
     // publishWaterStatus() is called inside updateWaterSample() on completion
   }
 
   if (now - lastAggregateHeartbeatMs >= aggregateheartbeatintervalms) {
-    Serial.println("heartbeat");
+    remotePrintln("heartbeat");
     publishAggregateStatus();
     lastAggregateHeartbeatMs = now;
   }

@@ -13,6 +13,11 @@
 void consoleLog(const char* type, const char* msg);
 void consoleLog(const char* type, const String& msg);
 
+// Mirror to Serial and UDP port 5555
+void remotePrint(const String& msg);
+void remotePrintln(const String& msg);
+void remotePrintf(const char* format, ...);
+
 // Serialise entries with seq > afterSeq into arr.
 // Returns current highest seq so the caller can pass it next time.
 uint32_t appendConsoleLogJson(JsonArray& arr, uint32_t afterSeq);

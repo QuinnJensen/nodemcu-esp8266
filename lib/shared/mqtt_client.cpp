@@ -43,7 +43,7 @@ static void enterIdle() {
 }
 
 void notifyMqttConfigChanged() {
-  Serial.println("[MQTT] Config change notified -> forcing reconnect");
+  remotePrintln("[MQTT] Config change notified -> forcing reconnect");
   mqtt.disconnect();
   wifiClient.stop();
   enterIdle();
@@ -75,12 +75,11 @@ static bool serializeDocToBuffer(const JsonDocument& doc, char* buf, size_t sz, 
   if (!buf || sz == 0) return false;
   size_t needed = measureJson(doc);
   if (needed >= sz) {
-    Serial.print("[MQTT] payload too large, need="); Serial.print(needed);
-    Serial.print(" buf="); Serial.println(sz);
+    remotePrintf("[MQTT] payload too large, need=%d buf=%d\n", needed, sz);
     return false;
   }
   outLen = serializeJson(doc, buf, sz);
-  if (outLen == 0) { Serial.println("[MQTT] serializeJson empty"); return false; }
+  if (outLen == 0) { remotePrintln("[MQTT] serializeJson empty"); return false; }
   return true;
 }
 
@@ -96,14 +95,14 @@ bool publishJsonDocToTopic(const char* topic, const JsonDocument& doc, bool reta
 
   size_t n = 0;
   if (!serializeDocToBuffer(doc, buffer, mqttbuffersize, n)) {
-    Serial.print("[MQTT] publish skipped: "); Serial.println(topic);
+    remotePrintf("[MQTT] publish skipped: %s\n", topic);
     if (sPublishLogger) sPublishLogger(topic, "<serialize failed>", 18, false);
     delete[] buffer;
     return false;
   }
   bool ok = mqtt.publish(topic, reinterpret_cast<const uint8_t*>(buffer), n, retained);
   if (ok) { mqttPublishCount++; _kickSpinner(); }
-  else { Serial.print("[MQTT] publish failed: "); Serial.println(topic); }
+  else { remotePrintf("[MQTT] publish failed: %s\n", topic); }
   if (sPublishLogger) sPublishLogger(topic, buffer, n, ok);
   
   delete[] buffer;
@@ -146,13 +145,13 @@ static bool runMqttHandshake() {
   // mqtt.connect() is fast here -- TCP socket is already open
   bool ok = mqtt.connect(clientId.c_str(), nullptr, nullptr,
                          statusTopic, 0, true, willPayload);
-  Serial.print("[MQTT] handshake result="); Serial.println(ok ? "ok" : "fail");
-  Serial.print("[MQTT] state="); Serial.println(mqtt.state());
+  remotePrintf("[MQTT] handshake result=%s\n", ok ? "ok" : "fail");
+  remotePrintf("[MQTT] state=%d\n", mqtt.state());
 
   if (!ok) { _setStatus("broker conn fail", 2000); return false; }
 
   bool subOk = mqtt.subscribe(commandTopic);
-  Serial.print("[MQTT] subscribe="); Serial.println(subOk ? "ok" : "failed");
+  remotePrintf("[MQTT] subscribe=%s\n", subOk ? "ok" : "failed");
   if (!subOk) { _setStatus("cmd sub failed", 2000); mqtt.disconnect(); return false; }
 
   _setStatus("broker connected", 2000);
@@ -207,8 +206,7 @@ void serviceMqttClient() {
       int res = WiFi.hostByName(config.mqttHost, ip);
       if (res == 1) {
         sResolvedIp = ip;
-        Serial.print("[MQTT] resolved "); Serial.print(config.mqttHost);
-        Serial.print(" -> "); Serial.println(ip);
+        remotePrintf("[MQTT] resolved %s -> %s\n", config.mqttHost, ip.toString().c_str());
         
         // Initiate TCP connect with short timeout (100ms).
         // This is long enough to let the stack start the handshake,
@@ -219,9 +217,9 @@ void serviceMqttClient() {
         // We poll for the remainder of the handshake in the next state.
         sState = MqttReconnectState::CONNECTING;
         sStateEnteredMs = now;
-        Serial.println("[MQTT] TCP SYN initiated -> CONNECTING (background)");
+        remotePrintln("[MQTT] TCP SYN initiated -> CONNECTING (background)");
       } else {
-        Serial.print("[MQTT] DNS failed for "); Serial.println(config.mqttHost);
+        remotePrintf("[MQTT] DNS failed for %s\n", config.mqttHost);
         _setStatus("DNS fail", 2000);
         enterIdle();
       }
@@ -231,13 +229,13 @@ void serviceMqttClient() {
     // ── CONNECTING: poll until TCP up or timeout ────────────────────────────
     case MqttReconnectState::CONNECTING:
       if (wifiClient.connected()) {
-        Serial.println("[MQTT] TCP connected -> HANDSHAKING");
+        remotePrintln("[MQTT] TCP connected -> HANDSHAKING");
         // Restore a reasonable timeout for actual data exchange
         wifiClient.setTimeout(5000);
         sState = MqttReconnectState::HANDSHAKING;
         sStateEnteredMs = now;
       } else if (now - sStateEnteredMs >= mqttTcpPollTimeoutMs) {
-        Serial.println("[MQTT] TCP connect timeout");
+        remotePrintln("[MQTT] TCP connect timeout");
         _setStatus("broker timeout", 2000);
         wifiClient.stop();
         enterIdle();

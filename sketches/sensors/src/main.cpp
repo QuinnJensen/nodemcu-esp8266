@@ -91,6 +91,8 @@ void setup() {
   startMainWebUi();
   startMetricsServer();
   startMqttIfWifiReady();
+  
+  remotePrintf("Boot complete. Version: %s\n", buildVersion);
 }
 
 void loop() {

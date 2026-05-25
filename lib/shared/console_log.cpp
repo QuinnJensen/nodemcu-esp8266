@@ -1,6 +1,9 @@
 // console_log.cpp
 #include "console_log.h"
 #include <time.h>
+#include <ESP8266WiFi.h>
+#include <WiFiUdp.h>
+#include <stdarg.h>
 
 #define CLOG_CAP     32
 #define CLOG_MSG_LEN 256
@@ -17,6 +20,21 @@ struct CLogEntry {
 static CLogEntry clogBuf[CLOG_CAP];
 static uint8_t   clogHead = 0;
 static uint32_t  clogSeq  = 0;
+
+static WiFiUDP udp;
+static const uint16_t udpPort = 5555;
+
+static void sendUdp(const char* msg, bool newline) {
+  if (WiFi.status() == WL_CONNECTED) {
+    // Broadcast to the subnet
+    IPAddress ip = WiFi.localIP();
+    ip[3] = 255; 
+    udp.beginPacket(ip, udpPort);
+    udp.write(msg);
+    if (newline) udp.write("\n");
+    udp.endPacket();
+  }
+}
 
 void consoleLog(const char* type, const char* msg) {
   CLogEntry& e = clogBuf[clogHead];
@@ -37,10 +55,38 @@ void consoleLog(const char* type, const char* msg) {
   strncpy(e.msg, msg ? msg : "", sizeof(e.msg) - 1);
   e.msg[sizeof(e.msg) - 1] = '\0';
   clogHead = (clogHead + 1) % CLOG_CAP;
+
+  // Mirror to Serial and UDP
+  Serial.print("["); Serial.print(e.type); Serial.print("] ");
+  Serial.println(e.msg);
+  
+  char udpBuf[CLOG_MSG_LEN + 16];
+  snprintf(udpBuf, sizeof(udpBuf), "[%s] %s", e.type, e.msg);
+  sendUdp(udpBuf, true);
 }
 
 void consoleLog(const char* type, const String& msg) {
   consoleLog(type, msg.c_str());
+}
+
+void remotePrint(const String& msg) {
+  Serial.print(msg);
+  sendUdp(msg.c_str(), false);
+}
+
+void remotePrintln(const String& msg) {
+  Serial.println(msg);
+  sendUdp(msg.c_str(), true);
+}
+
+void remotePrintf(const char* format, ...) {
+  char buf[256];
+  va_list args;
+  va_start(args, format);
+  vsnprintf(buf, sizeof(buf), format, args);
+  va_end(args);
+  Serial.print(buf);
+  sendUdp(buf, false);
 }
 
 uint32_t appendConsoleLogJson(JsonArray& arr, uint32_t afterSeq) {
