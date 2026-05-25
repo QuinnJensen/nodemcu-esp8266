@@ -89,11 +89,16 @@ void scanSensors(bool force) {
     sensorNetworkDetected = true;
     everHadPhysicalSensors = true;
     useFakeSensors = false;
+
+    // Only set resolution if count changed or forced to avoid bus noise
+    bool countChanged = (found != sensorCount);
     sensorCount = found;
     for (uint8_t i = 0; i < found; i++) {
       memcpy(sensorAddresses[i], discovered[i], sizeof(DeviceAddress));
       sensorPresent[i] = true;
-      ds.setResolution(sensorAddresses[i], 12);
+      if (countChanged || force) {
+        ds.setResolution(sensorAddresses[i], 12);
+      }
     }
     resolveSensorNamesFromAddresses();
     saveSensorNames();
@@ -122,12 +127,13 @@ void collectTemperatureResults() {
   uint8_t count = sensorCount;
   for (uint8_t i = 0; i < count; i++) {
     yield();
-    if (!sensorPresent[i]) continue; // Skip if we already know it's missing
+    if (!sensorPresent[i]) continue;
     float t = ds.getTempC(sensorAddresses[i]);
+
     if (t == DEVICE_DISCONNECTED_C || t < -50.0f || t > 130.0f) {
+      Serial.print("[1-WIRE] Read FAIL index="); Serial.print(i);
+      Serial.print(" addr="); Serial.println(addressToString(sensorAddresses[i]));
       sensorTempsC[i] = NAN;
-      // Don't set sensorPresent[i] to false immediately to avoid flickering 
-      // if one read fails, but we'll use it for logic.
     } else {
       sensorTempsC[i] = t;
       sensorPresent[i] = true;
@@ -149,6 +155,8 @@ void readTemperatures() {
     if (!sensorPresent[i]) continue;
     float t = ds.getTempC(sensorAddresses[i]);
     if (t == DEVICE_DISCONNECTED_C || t < -50.0f || t > 130.0f) {
+      Serial.print("[1-WIRE] Read FAIL (sync) index="); Serial.print(i);
+      Serial.print(" addr="); Serial.println(addressToString(sensorAddresses[i]));
       sensorTempsC[i] = NAN;
     } else {
       sensorTempsC[i] = t;
