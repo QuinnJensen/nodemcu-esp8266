@@ -6,6 +6,7 @@
 #include "app_state.h"
 #include "app_config.h"
 #include "util.h"
+#include "console_log.h"
 
 static WifiPortalDisplay sDisplay;
 
@@ -92,6 +93,7 @@ void startPortalAndConnect(bool forcePortal, const char* ssidSuffix) {
     shouldSaveConfig = false;
   }
   _setStatus("ip " + ipToString(WiFi.localIP()), 3000);
+  remotePrintf("[WIFI] Connected. IP: %s\n", ipToString(WiFi.localIP()).c_str());
 }
 
 bool startupReconfigRequested() {
@@ -141,6 +143,7 @@ void ensureWiFi() {
   if (WiFi.status() == WL_CONNECTED) {
     lastRssi = WiFi.RSSI();
     _setStatus("ip " + ipToString(WiFi.localIP()), 3000);
+    remotePrintf("[WIFI] Reconnected. IP: %s\n", ipToString(WiFi.localIP()).c_str());
   }
 }
 

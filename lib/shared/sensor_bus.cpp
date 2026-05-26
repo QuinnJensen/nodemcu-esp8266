@@ -11,16 +11,12 @@ static const char* fakeSensorNames[3]     = {"sensor1", "sensor2", "sensor3"};
 static const char* fakeSensorAddresses[3] = {"28DEAD2BAD0001A1", "28DEAD2BAD0002B2", "28DEAD2BAD0003C3"};
 static float       fakeSensorTempsC[3]    = {21.1f, 22.8f, 24.4f};
 
-bool conversionPending = false;
-unsigned long conversionRequestedMs = 0;
-
 void initSensorBus() {
   ds.setWaitForConversion(false);
   ds.begin();
 }
 
 String defaultSensorNameForAddress(const DeviceAddress addr) {
-  // Use last 5 hex digits of address (low nibble of addr[5], full addr[6], full addr[7])
   uint32_t low20 = ((uint32_t)(addr[5] & 0x0F) << 16) | ((uint32_t)addr[6] << 8) | addr[7];
   char buf[16];
   snprintf(buf, sizeof(buf), "sens%05X", low20);
@@ -58,15 +54,9 @@ static void loadFakeSensors() {
 void scanSensors(bool force) {
   if (!force && lastSensorRescanMs > 0 && millis() - lastSensorRescanMs < sensorrescanintervalms) return;
   lastSensorRescanMs = millis();
-
-  // Log power mode to help debug pull-up/wiring issues. 
-  // This will appear on UDP once WiFi is connected.
-  remotePrintf("[1-WIRE] Scanning bus. Mode: %s\n", ds.isParasitePowerMode() ? "Parasite" : "Powered (3-wire)");
-
   flashBlueLed(30);
 
   DeviceAddress discovered[maxsensors];
-  bool duplicateFound = false;
   uint8_t found = 0;
 
   oneWire.reset_search();
@@ -74,19 +64,20 @@ void scanSensors(bool force) {
   while (found < maxsensors && oneWire.search(addr)) {
     yield();
     if (!ds.validAddress(addr)) continue;
+    
+    // Check CRC of the ROM address itself
+    if (OneWire::crc8(addr, 7) != addr[7]) {
+      remotePrintf("[1-WIRE] Scan CRC error on addr: %s\n", addressToString(addr).c_str());
+      continue;
+    }
+
     bool seen = false;
     for (uint8_t i = 0; i < found; i++) {
-      if (memcmp(discovered[i], addr, sizeof(DeviceAddress)) == 0) { seen = true; duplicateFound = true; break; }
+      if (memcmp(discovered[i], addr, sizeof(DeviceAddress)) == 0) { seen = true; break; }
     }
     if (seen) continue;
     memcpy(discovered[found], addr, sizeof(DeviceAddress));
     found++;
-  }
-
-  for (uint8_t i = 0; i < maxsensors; i++) {
-    sensorPresent[i] = false;
-    sensorTempsC[i] = NAN;
-    memset(sensorAddresses[i], 0, sizeof(DeviceAddress));
   }
 
   if (found > 0) {
@@ -94,97 +85,68 @@ void scanSensors(bool force) {
     sensorNetworkDetected = true;
     everHadPhysicalSensors = true;
     useFakeSensors = false;
-
-    // Only set resolution if count changed or forced to avoid bus noise
-    bool countChanged = (found != sensorCount);
     sensorCount = found;
     for (uint8_t i = 0; i < found; i++) {
       memcpy(sensorAddresses[i], discovered[i], sizeof(DeviceAddress));
       sensorPresent[i] = true;
-      if (countChanged || force) {
-        ds.setResolution(sensorAddresses[i], 12);
-      }
+      ds.setResolution(sensorAddresses[i], 12);
     }
     resolveSensorNamesFromAddresses();
     saveSensorNames();
-    if (duplicateFound) setStatusMessage("1-wire dup skipped", 2000);
   } else if (!sensorNetworkDetected) {
     loadFakeSensors();
   } else {
     useFakeSensors = false;
     sensorCount = 0;
-    setStatusMessage("1-wire missing", 2000);
   }
 }
 
-void requestTemperatureConversion() {
+void readTemperatures() {
   if (useFakeSensors || sensorCount == 0) return;
+  
   pulseSpinnerDot(900);
   flashBlueLed(30);
-  ds.requestTemperatures();
-  conversionPending = true;
-  conversionRequestedMs = millis();
-}
 
-void collectTemperatureResults() {
-  if (useFakeSensors || !conversionPending) return;
-  conversionPending = false;
-  uint8_t count = sensorCount;
-  for (uint8_t i = 0; i < count; i++) {
+  // 1. Trigger global conversion
+  ds.requestTemperatures();
+  
+  // 2. Wait for completion (750ms for 12-bit, we wait 850ms for safety)
+  unsigned long start = millis();
+  while (millis() - start < 850) { yield(); }
+
+  // 3. Read each sensor with CRC check
+  for (uint8_t i = 0; i < sensorCount; i++) {
     yield();
     if (!sensorPresent[i]) continue;
 
-    float t = DEVICE_DISCONNECTED_C;
-    uint8_t retries = 3;
-    
-    // Retry loop for robust reading in noisy environments
-    while (retries > 0) {
+    float t = NAN;
+    uint8_t retries = 2;
+    while (retries--) {
       t = ds.getTempC(sensorAddresses[i]);
-      if (t != DEVICE_DISCONNECTED_C && t > -50.0f && t < 130.0f) break;
-      retries--;
-      if (retries > 0) {
-        oneWire.reset(); // Force a bus reset to clear potential noise
-        delay(15);      // Short wait for line to pull high
-        yield();
+      
+      // The DallasTemperature library handles CRC internally during getTempC.
+      // If it fails CRC or is missing, it returns DEVICE_DISCONNECTED_C (-127).
+      // We also filter out 85.0C (Power-On-Reset value).
+      if (t != DEVICE_DISCONNECTED_C && t != 85.0f && t > -50.0f && t < 130.0f) {
+        sensorTempsC[i] = t;
+        break;
       }
-    }
-
-    if (t == DEVICE_DISCONNECTED_C || t < -50.0f || t > 130.0f) {
-      remotePrintf("[1-WIRE] Read FAIL index=%d addr=%s after 3 tries\n", i, addressToString(sensorAddresses[i]).c_str());
-      sensorTempsC[i] = NAN;
-    } else {
-      sensorTempsC[i] = t;
-      sensorPresent[i] = true;
+      
+      if (retries > 0) {
+        oneWire.reset();
+        delay(10);
+      } else {
+        sensorTempsC[i] = NAN;
+        remotePrintf("[1-WIRE] Read FAIL idx=%d addr=%s\n", i, addressToString(sensorAddresses[i]).c_str());
+      }
     }
   }
   lastSensorSampleMs = millis();
 }
 
-void readTemperatures() {
-  if (useFakeSensors) return;
-  pulseSpinnerDot(900);
-  flashBlueLed(30);
-  ds.requestTemperatures();
-  unsigned long start = millis();
-  while (millis() - start < 800) { yield(); }
-  uint8_t count = sensorCount;
-  for (uint8_t i = 0; i < count; i++) {
-    yield();
-    if (!sensorPresent[i]) continue;
-    float t = ds.getTempC(sensorAddresses[i]);
-    if (t == DEVICE_DISCONNECTED_C || t < -50.0f || t > 130.0f) {
-      remotePrintf("[1-WIRE] Read FAIL (sync) index=%d addr=%s\n", i, addressToString(sensorAddresses[i]).c_str());
-      sensorTempsC[i] = NAN;
-    } else {
-      sensorTempsC[i] = t;
-      sensorPresent[i] = true;
-    }
-  }
-}
-
 void sampleSensors() {
   scanSensors();
-  requestTemperatureConversion();
+  readTemperatures();
 }
 
 String sensorAddressString(uint8_t i) {

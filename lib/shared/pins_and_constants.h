@@ -48,7 +48,7 @@
 #define mqttbuffersize 4096
 #define devicetz "MDT7MST,M3.2.0,M11.1.0"
 
-#define maxsensors 10
+#define maxsensors 8
 #define sensornamelen 32
 #define waterlevelcount 5
 #define waterthresholdcount 5

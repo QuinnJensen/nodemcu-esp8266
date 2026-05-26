@@ -17,28 +17,13 @@ void runScheduledTasks() {
   // Drive the non-blocking water probe state machine every tick
   updateWaterSample();
 
-  // Phase 2: collect temperature results 1000ms after conversion was requested
-  if (waitingToCollect && conversionPending &&
-      now - conversionRequestedMs >= 1000) {
-    collectTemperatureResults();
+  // Sensor heartbeat: scan + read temperatures
+  // Delay if water probe is currently active to prevent timing conflicts
+  if (now - lastSensorHeartbeatMs >= sensorheartbeatintervalms && !waterProbing) {
+    Serial.println("sample sensors");
+    scanSensors();
+    readTemperatures();
     publishPerSensorStatuses();
-    waitingToCollect = false;
-  }
-
-  // Sensor heartbeat: scan + fire async conversion
-  // Delay if water probe is currently active or we are waiting for a conversion
-  if (now - lastSensorHeartbeatMs >= sensorheartbeatintervalms && !waterProbing && !waitingToCollect) {
-    // Alternate between scanning and sampling to avoid bus noise during conversion
-    static bool alternateScan = true;
-    if (alternateScan) {
-      remotePrintln("[1-WIRE] Periodic bus rescan");
-      scanSensors();
-    } else {
-      remotePrintln("[1-WIRE] Triggering conversion");
-      requestTemperatureConversion();
-      waitingToCollect = true;
-    }
-    alternateScan = !alternateScan;
     lastSensorHeartbeatMs = now;
   }
 
