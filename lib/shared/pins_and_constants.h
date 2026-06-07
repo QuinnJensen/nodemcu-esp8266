@@ -50,14 +50,13 @@
 
 #define maxsensors 6
 #define sensornamelen 32
-#define waterlevelcount 5
-#define waterthresholdcount 5
+#define waterlevelcount 4
+#define waterthresholdcount 3
 
 enum WaterLevelIndex {
-  WATER_NO_PROBE = 0,
-  WATER_GT_40 = 1,
-  WATER_15_TO_40 = 2,
-  WATER_5_TO_15 = 3,
-  WATER_LT_5 = 4,
-  WATER_UNKNOWN = 5
+  WATER_GT_40 = 0,
+  WATER_15_TO_40 = 1,
+  WATER_5_TO_15 = 2,
+  WATER_LT_5 = 3,
+  WATER_UNKNOWN = 4
 };

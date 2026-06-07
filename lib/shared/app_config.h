@@ -24,7 +24,7 @@ struct AppConfig {
   bool ledEnabled = true;
 #ifdef SHARED_LIB_USE_WATER_PROBE
   uint32_t waterHeartbeatIntervalMs = defaultwaterheartbeatintervalms;
-  uint16_t waterThresholds[waterthresholdcount] = {20, 44, 268, 485, 1023};
+  uint16_t waterThresholds[waterthresholdcount] = {44, 268, 485};
 #endif
 };
 

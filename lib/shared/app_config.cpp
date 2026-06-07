@@ -11,7 +11,7 @@ char statusTopic[128];
 char resultsTopic[128];
 #ifdef SHARED_LIB_USE_WATER_PROBE
 char waterTopic[128];
-static const uint16_t waterThresholdDefaultsLocal[waterthresholdcount] = {20, 44, 268, 485, 1023};
+static const uint16_t waterThresholdDefaultsLocal[waterthresholdcount] = {44, 268, 485};
 
 void loadDefaultWaterThresholds() {
   for (uint8_t i = 0; i < waterthresholdcount; i++) config.waterThresholds[i] = waterThresholdDefaultsLocal[i];

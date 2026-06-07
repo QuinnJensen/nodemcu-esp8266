@@ -165,7 +165,7 @@ static void handlePostWaterConfig() {
   if (webServer.hasArg("intervalms"))
     ok &= setWaterIntervalMs((uint32_t)webServer.arg("intervalms").toInt());
   uint16_t vals[waterthresholdcount];
-  const char* keys[waterthresholdcount] = {"t0","t1","t2","t3","t4"};
+  const char* keys[waterthresholdcount] = {"t0","t1","t2"};
   bool haveAll = true;
   for (uint8_t i = 0; i < waterthresholdcount; i++) {
     if (!webServer.hasArg(keys[i])) { haveAll = false; break; }

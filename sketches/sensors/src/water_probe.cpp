@@ -6,8 +6,8 @@
 #include "display_ui.h"
 #include "mqtt_publish.h"
 
-static const char* waterLevelLabelsLocal[waterthresholdcount] = {
-  "no_probe", ">40gal", "15-40gal", "5-15gal", "<5gal"
+static const char* waterLevelLabelsLocal[waterlevelcount] = {
+  ">40gal", "15-40gal", "5-15gal", "<5gal"
 };
 
 enum WaterProbeState {
@@ -21,7 +21,6 @@ static WaterProbeState probeState  = WPS_IDLE;
 static unsigned long   phaseStart  = 0;
 static uint32_t        adcSum      = 0;
 static uint32_t        adcSamples  = 0;
-static bool            quickDone   = false;  // set after no-probe early check
 
 void initWaterProbePins() {
   pinMode(probeOnPin, OUTPUT);
@@ -46,7 +45,6 @@ void beginWaterSample() {
   if (probeState != WPS_IDLE) return;   // already running
   adcSum      = 0;
   adcSamples  = 0;
-  quickDone   = false;
   waterProbing = true;
   if (config.ledEnabled) setBlueLed(true);
   digitalWrite(probeOnPin, HIGH);
@@ -66,25 +64,9 @@ void updateWaterSample() {
   if (probeState == WPS_STABILIZE) {
     if (now - phaseStart < 25) return;   // wait 25 ms for probe to settle
 
-    // Quick no-probe check on first ADC read
-    uint16_t q = analogRead(A0);
-    if (q <= config.waterThresholds[WATER_NO_PROBE]) {
-      // No probe -- still hold indicators for the full window so the
-      // LED duration is consistent and distinguishable.
-      waterProbePresent = false;
-      waterAdcRaw       = q;
-      waterLevelIndex   = WATER_NO_PROBE;
-      quickDone         = true;
-      // Don't accumulate; jump straight to the timed window so the
-      // full 5-second LED/dot is visible.
-      phaseStart = now;
-      probeState = WPS_SAMPLE;
-      return;
-    }
-
-    // Probe present -- begin accumulation window
+    // Probe present (always assumed now) -- begin accumulation window
     waterProbePresent = true;
-    adcSum     += q;
+    adcSum     += analogRead(A0);
     adcSamples  = 1;
     phaseStart  = now;
     probeState  = WPS_SAMPLE;
@@ -94,12 +76,10 @@ void updateWaterSample() {
   if (probeState == WPS_SAMPLE) {
     if (now - phaseStart < watermeasurewindowms) {
       // Accumulate a small batch each tick (no delay)
-      if (!quickDone) {
-        for (uint8_t i = 0; i < 8; i++) {
-          adcSum += analogRead(A0);
-        }
-        adcSamples += 8;
+      for (uint8_t i = 0; i < 8; i++) {
+        adcSum += analogRead(A0);
       }
+      adcSamples += 8;
       return;
     }
     // Window expired -- fall through to finish
@@ -110,11 +90,10 @@ void updateWaterSample() {
     digitalWrite(probeOnPin, LOW);
     if (config.ledEnabled) setBlueLed(false);
 
-    if (!quickDone) {
-      if (adcSamples == 0) adcSamples = 1;
-      waterAdcRaw     = (uint16_t)(adcSum / adcSamples);
-      waterLevelIndex = classifyWaterLevel(waterAdcRaw);
-    }
+    if (adcSamples == 0) adcSamples = 1;
+    waterAdcRaw     = (uint16_t)(adcSum / adcSamples);
+    waterLevelIndex = classifyWaterLevel(waterAdcRaw);
+
     waterVoltage      = (float)waterAdcRaw * 3.3f / 1023.0f;
     waterValid        = true;
     lastWaterSampleMs = millis();
@@ -138,7 +117,6 @@ void appendWaterToJson(JsonDocument& doc) {
   water["level"]               = waterLevelLabel(waterLevelIndex);
   JsonArray thresholds = water.createNestedArray("thresholds");
   for (uint8_t i = 0; i < waterthresholdcount; i++) thresholds.add(config.waterThresholds[i]);
-  water["noprobeadc"] = config.waterThresholds[WATER_NO_PROBE];
   if (lastWaterSampleMs > 0) water["sampleagems"] = millis() - lastWaterSampleMs;
 }
 
