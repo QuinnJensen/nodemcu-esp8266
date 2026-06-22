@@ -89,6 +89,8 @@ static void handleApiConfig() {
   doc["deviceid"]          = safeDeviceId();
   doc["prometheusport"]    = config.prometheusPort;
   doc["led_enabled"]       = config.ledEnabled;
+  doc["water_probe_enabled"]   = config.waterProbeEnabled;
+  doc["sensor_network_enabled"] = config.sensorNetworkEnabled;
   doc["timezone"]          = config.timezone;
 
   JsonObject topics = doc.createNestedObject("topics");
@@ -226,6 +228,31 @@ static void handlePostDisplayConfig() {
   webSendOk(enabled ? "LED enabled" : "LED disabled");
 }
 
+static void handlePostFeaturesConfig() {
+  bool changed = false;
+  if (webServer.hasArg("water_probe_enabled")) {
+    String val = webServer.arg("water_probe_enabled");
+    bool enabled = (val == "1" || val.equalsIgnoreCase("true"));
+    if (config.waterProbeEnabled != enabled) {
+      config.waterProbeEnabled = enabled;
+      changed = true;
+    }
+  }
+  if (webServer.hasArg("sensor_network_enabled")) {
+    String val = webServer.arg("sensor_network_enabled");
+    bool enabled = (val == "1" || val.equalsIgnoreCase("true"));
+    if (config.sensorNetworkEnabled != enabled) {
+      config.sensorNetworkEnabled = enabled;
+      changed = true;
+    }
+  }
+  if (changed) {
+    saveConfig();
+    setStatusMessage("features saved", 1500);
+  }
+  webSendOk("features saved");
+}
+
 void startMainWebUi() {
   webServer.on("/",           HTTP_GET, handleHomePage);
   webServer.on("/index.html", HTTP_GET, handleHomePage);
@@ -237,6 +264,7 @@ void startMainWebUi() {
   webServer.on("/api/console/command", HTTP_POST, handlePostConsoleCommand);
   webServer.on("/api/config/services", HTTP_POST, handlePostServicesConfig);
   webServer.on("/api/config/display",  HTTP_POST, handlePostDisplayConfig);
+  webServer.on("/api/config/features", HTTP_POST, handlePostFeaturesConfig);
   webServer.on("/api/config/time",     HTTP_POST, handlePostTimeConfig);
   if (sRoutesFn) sRoutesFn();
   webServer.onNotFound([]() {

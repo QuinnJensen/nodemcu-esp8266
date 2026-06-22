@@ -252,6 +252,12 @@ void handleCommandJson(const String& payload) {
   }
 #ifdef SHARED_LIB_USE_ONEWIRE
   if (!strcmp(command, "scan") || !strcmp(command, "temps")) {
+    if (!config.sensorNetworkEnabled) {
+      publishCommandResult("scan", false, "Sensor network feature is disabled");
+      setStatusMessage("scan disabled", 1500);
+      consoleLog(CLOG_WARN, "[CMD] scan: failed because sensor network feature is disabled.");
+      return;
+    }
     pendingScan = true;
     setStatusMessage("scan queued", 1500);
     return;

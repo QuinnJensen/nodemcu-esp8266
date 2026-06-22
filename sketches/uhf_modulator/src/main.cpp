@@ -129,25 +129,29 @@ void loop() {
   }
 
 #ifdef SHARED_LIB_USE_ONEWIRE
-  // Async 1-Wire Task Machine
-  bool heartbeatDue = (now - lastSensorHeartbeatMs >= sensorheartbeatintervalms);
-  bool manualRequest = (webRequestSensorScan || pendingScan);
+  if (config.sensorNetworkEnabled) {
+    // Async 1-Wire Task Machine
+    bool heartbeatDue = (now - lastSensorHeartbeatMs >= sensorheartbeatintervalms);
+    bool manualRequest = (webRequestSensorScan || pendingScan);
 
-  if (waitingTempCollect && conversionPending && now - conversionRequestedMs >= 800) {
-    collectTemperatureResults();
+    if (waitingTempCollect && conversionPending && now - conversionRequestedMs >= 800) {
+      collectTemperatureResults();
+      waitingTempCollect = false;
+      if (manualRequest) publishUhfStatus(false);
+    }
+
+    if (!waitingTempCollect && (heartbeatDue || manualRequest)) {
+      bool forceScan = manualRequest;
+      webRequestSensorScan = false;
+      pendingScan = false;
+      if (forceScan) setStatusMessage("scan running", 1200);
+      scanSensors(forceScan);
+      requestTemperatureConversion();
+      waitingTempCollect = true;
+      lastSensorHeartbeatMs = now;
+    }
+  } else {
     waitingTempCollect = false;
-    if (manualRequest) publishUhfStatus(false);
-  }
-
-  if (!waitingTempCollect && (heartbeatDue || manualRequest)) {
-    bool forceScan = manualRequest;
-    webRequestSensorScan = false;
-    pendingScan = false;
-    if (forceScan) setStatusMessage("scan running", 1200);
-    scanSensors(forceScan);
-    requestTemperatureConversion();
-    waitingTempCollect = true;
-    lastSensorHeartbeatMs = now;
   }
 #endif
 }

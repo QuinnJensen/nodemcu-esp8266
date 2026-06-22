@@ -26,18 +26,37 @@ void handleCommandJson(const String& payload) {
   consoleLog(CLOG_RX, ("[RX] MQTT command: " + String(command)).c_str());
 
   if (!strcmp(command, "scan") || !strcmp(command, "status") || !strcmp(command, "heartbeat")) {
-    scanSensors(true);
-    readTemperatures();
-    lastSensorSampleMs = millis();
-    beginWaterSample();
+    if (!strcmp(command, "scan") && !config.sensorNetworkEnabled) {
+      publishCommandResult("scan", false, "Sensor network feature is disabled");
+      setStatusMessage("scan disabled", 1500);
+      consoleLog(CLOG_WARN, "[CMD] scan: failed because sensor network feature is disabled.");
+      return;
+    }
+
+    if (config.sensorNetworkEnabled) {
+      scanSensors(true);
+      readTemperatures();
+      lastSensorSampleMs = millis();
+    }
+    if (config.waterProbeEnabled) {
+      beginWaterSample();
+    }
     publishAggregateStatus();
-    publishPerSensorStatuses();
+    if (config.sensorNetworkEnabled) {
+      publishPerSensorStatuses();
+    }
     setStatusMessage("scanpublish", 1500);
-    consoleLog(CLOG_INFO, "[CMD] scan/status: bus scanned, aggregate published.");
+    consoleLog(CLOG_INFO, "[CMD] scan/status: aggregate published.");
     return;
   }
 
   if (!strcmp(command, "water") || !strcmp(command, "waterstatus")) {
+    if (!config.waterProbeEnabled) {
+      publishCommandResult("water", false, "Water probe feature is disabled");
+      setStatusMessage("water disabled", 1500);
+      consoleLog(CLOG_WARN, "[CMD] water: failed because water probe feature is disabled.");
+      return;
+    }
     beginWaterSample();
     setStatusMessage("water queued", 1500);
     consoleLog(CLOG_INFO, "[CMD] water: probe sample queued.");

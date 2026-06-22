@@ -35,8 +35,7 @@ button,input{font:inherit}
 .grid{display:grid;gap:16px}
 .grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}
 .grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px}
-.card h3{margin:0 0 12px;font-size:17px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;position:relative}
 .card p{margin:8px 0;color:var(--muted)}
 .kpi{font-size:30px;font-weight:800;margin:8px 0 4px}
 .muted{color:var(--muted)}
@@ -63,6 +62,11 @@ button,input{font:inherit}
 .hidden{display:none !important}
 .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 .small{font-size:12px}
+.card h3{margin:0 0 12px;font-size:17px}
+.disabled-feature{opacity:0.45;pointer-events:none;filter:grayscale(1)}
+.disabled-feature-overlay{position:absolute;inset:0;background:rgba(24,27,31,0.7);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;text-align:center;border-radius:var(--radius);z-index:10;pointer-events:auto}
+.disabled-feature-overlay p{margin:0 0 8px 0;color:var(--text);font-weight:600;font-size:14px}
+.disabled-feature-overlay a{color:var(--accent);text-decoration:underline;font-size:13px;font-weight:500}
 /* dashboard sensor list */
 .sensor-list{display:grid;gap:6px;margin-top:10px}
 .sensor-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;background:var(--panel2);border-radius:10px;border:1px solid var(--line)}
@@ -346,13 +350,24 @@ function buildSensorListHtml(sensors){
   `</div>`;
 }
 
+function makeDisabledOverlay() {
+  return `<div class='disabled-feature-overlay'><p>Feature Disabled</p><a href='#' onclick='showPage("settings"); return false;'>Enable in Settings</a></div>`;
+}
+
 function renderDashboard(){
   const s=state.status||{};
   const w=state.water||{};
   const sensors=(state.temps||{}).sensors||[];
+  const cfg=state.config||{};
+
+  const sensorNetworkDisabledClass = !cfg.sensor_network_enabled ? "disabled-feature" : "";
+  const sensorNetworkDisabledOverlay = !cfg.sensor_network_enabled ? makeDisabledOverlay() : "";
+  const waterProbeDisabledClass = !cfg.water_probe_enabled ? "disabled-feature" : "";
+  const waterProbeDisabledOverlay = !cfg.water_probe_enabled ? makeDisabledOverlay() : "";
 
   const sensorsCard=
-    `<div class='card'>`+
+    `<div class='card ${sensorNetworkDisabledClass}'>`+
+      sensorNetworkDisabledOverlay +
       `<div style='display:flex;align-items:baseline;justify-content:space-between;gap:8px'>`+
         `<div class='muted'>Sensors</div>`+
         `<div class='small muted'>${s.sensorcount??0} on bus</div>`+
@@ -360,10 +375,21 @@ function renderDashboard(){
       buildSensorListHtml(sensors)+
     `</div>`;
 
+  const waterCard=
+    `<div class='card ${waterProbeDisabledClass}'>`+
+      waterProbeDisabledOverlay +
+      `<div class='muted'>Water Level</div>`+
+      `<div class='kpi'>${esc(w.level||'-')}</div>`+
+      `<div class='small muted'>ADC ${w.adc??0} &middot; ${Number(w.voltage||0).toFixed(2)}V</div>`+
+    `</div>`;
+
+  const scanBtnDisabled = !cfg.sensor_network_enabled ? "disabled" : "";
+  const waterBtnDisabled = !cfg.water_probe_enabled ? "disabled" : "";
+
   document.getElementById('page-dashboard').innerHTML=
     `<div class='grid three'>`+
       sensorsCard+
-      `<div class='card'><div class='muted'>Water Level</div><div class='kpi'>${esc(w.level||'-')}</div><div class='small muted'>ADC ${w.adc??0} &middot; ${Number(w.voltage||0).toFixed(2)}V</div></div>`+
+      waterCard+
       `<div class='card'><div class='muted'>Uptime</div><div class='kpi'>${Math.floor((s.uptime_ms||0)/1000)}s</div><div class='small muted'>RSSI ${s.rssidbm??'-'} dBm</div></div>`+
     `</div>`+
     `<div class='grid two'>`+
@@ -376,8 +402,8 @@ function renderDashboard(){
       `</div>`+
       `<div class='card'><h3>Quick Actions</h3>`+
         `<div class='actions'>`+
-          `<button class='btn btn-action' onclick="postScan()">Scan 1-Wire Bus</button>`+
-          `<button class='btn secondary btn-action' onclick="postAction('/api/water/sample')">Force Water Sample</button>`+
+          `<button class='btn btn-action' ${scanBtnDisabled} onclick="postScan()">Scan 1-Wire Bus</button>`+
+          `<button class='btn secondary btn-action' ${waterBtnDisabled} onclick="postAction('/api/water/sample')">Force Water Sample</button>`+
           `<button class='btn secondary' onclick='refreshAll()'>Refresh</button>`+
         `</div>`+
         `<p class='footer-note'>Actions are queued and executed after the HTTP response is sent to keep the ESP8266 responsive.</p>`+
@@ -396,14 +422,33 @@ function renderDashboard(){
 }
 
 function renderTemps(){
+  const cfg=state.config||{};
+  if (!cfg.sensor_network_enabled) {
+    document.getElementById('page-temps').innerHTML =
+      `<div class='card' style='grid-column:1/-1;text-align:center;padding:40px;'>` +
+        `<h3>Temperature Network Feature is Disabled</h3>` +
+        `<p class='muted'>Enable it in the Settings tab to start monitoring temperatures.</p>` +
+        `<div style='margin-top:20px;'><button class='btn' onclick='showPage("settings")'>Go to Settings</button></div>` +
+      `</div>`;
+    return;
+  }
   const t=state.temps||{};
   const sensors=t.sensors||[];
   document.getElementById('page-temps').innerHTML=`<div class='grid two'><div class='card'><h3>Temperature Network</h3><p><b>Detected:</b> ${t.sensorcount??0}</p><p><b>Physical network seen:</b> ${fmtBool(!!t.networkdetected)}</p><p><b>Simulated sensors:</b> ${fmtBool(!!t.simulated)}</p><div class='actions'><button class='btn btn-action' onclick="postScan()">Scan / Rediscover</button><button class='btn secondary' onclick='refreshAll()'>Refresh</button></div></div><div class='card'><h3>Sampling</h3><p><b>Last sample age:</b> ${ageSec(t.last_sample_ms_age)}</p><p><b>Last rescan age:</b> ${ageSec(t.last_rescan_ms_age)}</p><p class='footer-note'>Use this page to watch the current 1-Wire roster and temperatures without changing MQTT behavior.</p></div></div><div class='card'><h3>Live Sensors</h3><table class='table'><thead><tr><th>#</th><th>Name</th><th>Address</th><th>State</th><th>C</th><th>F</th></tr></thead><tbody>${sensors.length?sensors.map(s=>`<tr><td>${s.index}</td><td>${esc(s.name)}</td><td class='mono'>${esc(s.address)}</td><td>${s.connected?`<span class='pill good'>connected</span>`:`<span class='pill bad'>disconnected</span>`}</td><td>${s.tempc===null?'-':Number(s.tempc).toFixed(2)}</td><td>${s.tempc===null?'-':tempF(s.tempc)}</td></tr>`).join(''):`<tr><td colspan='6' class='muted'>No sensors available.</td></tr>`}</tbody></table></div>`;
 }
 
 function renderWater(){
-  const w=state.water||{};
   const cfg=state.config||{};
+  if (!cfg.water_probe_enabled) {
+    document.getElementById('page-water').innerHTML =
+      `<div class='card' style='grid-column:1/-1;text-align:center;padding:40px;'>` +
+        `<h3>Water Probe Feature is Disabled</h3>` +
+        `<p class='muted'>Enable it in the Settings tab to start monitoring water levels.</p>` +
+        `<div style='margin-top:20px;'><button class='btn' onclick='showPage("settings")'>Go to Settings</button></div>` +
+      `</div>`;
+    return;
+  }
+  const w=state.water||{};
   const th=(cfg.water||{}).thresholds||[];
   const page=document.getElementById('page-water');
   
@@ -496,11 +541,18 @@ function renderSettings(){
   dismissStaleConfigBanner();
   const c=state.config||{};
   const ledChecked=c.led_enabled?'checked':'';
+  const waterProbeChecked=c.water_probe_enabled?'checked':'';
+  const sensorNetworkChecked=c.sensor_network_enabled?'checked':'';
   const ip=esc((state.status||{}).ip||'0.0.0.0');
   const metricsPort=c.prometheusport??9111;
   const metricsUrl=`http://${ip}:${metricsPort}/metrics`;
+
+  const sensorNamesDisabledClass = !c.sensor_network_enabled ? "disabled-feature" : "";
+  const sensorNamesDisabledOverlay = !c.sensor_network_enabled ? makeDisabledOverlay() : "";
+
   document.getElementById('page-settings').innerHTML=
-    `<div class='card' style='grid-column:1/-1'>`+
+    `<div class='card ${sensorNamesDisabledClass}' style='grid-column:1/-1'>`+
+      sensorNamesDisabledOverlay+
       `<h3>Sensor Names <span id='sn-count' class='pill' style='font-size:.7rem;margin-left:.5rem'></span></h3>`+
       `<p class='muted'>Names are persisted by 64-bit ROM address. Live readings update automatically.</p>`+
       `<div class='actions' style='margin-bottom:.75rem'><button id='scan-bus-btn' class='btn secondary btn-action' onclick="postScan()">Scan Bus</button></div>`+
@@ -546,6 +598,30 @@ function renderSettings(){
         `<p class='small muted' style='margin:0'>Current device time: <span class='mono' id='tz-current'>${esc((state.status||{}).timestamp||'—')}</span></p>`+
         `<div class='actions'><button class='btn btn-action' type='submit'>Save Timezone</button></div>`+
       `</form>`+
+    `</div>`+
+    `<div class='card'>`+
+      `<h3>Feature Switches</h3>`+
+      `<form class='form' onsubmit='saveFeatures(event)'>`+
+        `<div style='display:flex;align-items:center;justify-content:space-between;padding:.5rem 0'>`+
+          `<div><div style='font-size:.9rem'>Water Probe</div><div class='small muted'>Enable/disable the analog water level probe</div></div>`+
+          `<label style='position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0'>`+
+            `<input type='checkbox' id='water-probe-toggle' ${waterProbeChecked} style='opacity:0;width:0;height:0;position:absolute'>`+
+            `<span id='water-probe-slider' style='position:absolute;inset:0;background:${c.water_probe_enabled?'var(--accent)':'#333'};border-radius:24px;cursor:pointer;transition:.2s'>`+
+              `<span id='water-probe-knob' style='position:absolute;width:18px;height:18px;left:${c.water_probe_enabled?'23':'3'}px;bottom:3px;background:${c.water_probe_enabled?'#fff':'#888'};border-radius:50%;transition:.2s'></span>`+
+            `</span>`+
+          `</label>`+
+        `</div>`+
+        `<div style='display:flex;align-items:center;justify-content:space-between;padding:.5rem 0'>`+
+          `<div><div style='font-size:.9rem'>Sensor Network</div><div class='small muted'>Enable/disable the 1-Wire sensor network</div></div>`+
+          `<label style='position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0'>`+
+            `<input type='checkbox' id='sensor-network-toggle' ${sensorNetworkChecked} style='opacity:0;width:0;height:0;position:absolute'>`+
+            `<span id='sensor-network-slider' style='position:absolute;inset:0;background:${c.sensor_network_enabled?'var(--accent)':'#333'};border-radius:24px;cursor:pointer;transition:.2s'>`+
+              `<span id='sensor-network-knob' style='position:absolute;width:18px;height:18px;left:${c.sensor_network_enabled?'23':'3'}px;bottom:3px;background:${c.sensor_network_enabled?'#fff':'#888'};border-radius:50%;transition:.2s'></span>`+
+            `</span>`+
+          `</label>`+
+        `</div>`+
+        `<div class='actions' style='margin-top:.75rem'><button class='btn btn-action' type='submit'>Save Features</button></div>`+
+      `</form>`+
     `</div>`;
 
   const chk=document.getElementById('led-toggle');
@@ -556,6 +632,25 @@ function renderSettings(){
     knob.style.left=chk.checked?'23px':'3px';
     knob.style.background=chk.checked?'#fff':'#888';
   });
+
+  const wpToggle=document.getElementById('water-probe-toggle');
+  const wpSlider=document.getElementById('water-probe-slider');
+  const wpKnob=document.getElementById('water-probe-knob');
+  if(wpToggle)wpToggle.addEventListener('change',()=>{
+    wpSlider.style.background=wpToggle.checked?'var(--accent)':'#333';
+    wpKnob.style.left=wpToggle.checked?'23px':'3px';
+    wpKnob.style.background=wpToggle.checked?'#fff':'#888';
+  });
+
+  const snToggle=document.getElementById('sensor-network-toggle');
+  const snSlider=document.getElementById('sensor-network-slider');
+  const snKnob=document.getElementById('sensor-network-knob');
+  if(snToggle)snToggle.addEventListener('change',()=>{
+    snSlider.style.background=snToggle.checked?'var(--accent)':'#333';
+    snKnob.style.left=snToggle.checked?'23px':'3px';
+    snKnob.style.background=snToggle.checked?'#fff':'#888';
+  });
+
   renderSensorNamesTable(true);
 }
 
@@ -587,6 +682,19 @@ async function saveLed(){
   setBusy(true);stopPoll();
   try{
     await postForm('/api/config/display',{led_enabled:chk.checked?'1':'0'});
+    state.config=await fetchJson('/api/config');
+    snapshotConfig();
+    forceRenderSettings();
+  }catch(e){console.warn(e);}finally{setBusy(false);resetPollBackoff();schedulePoll();}
+}
+
+async function saveFeatures(ev){
+  ev.preventDefault();
+  const wp=document.getElementById('water-probe-toggle').checked;
+  const sn=document.getElementById('sensor-network-toggle').checked;
+  setBusy(true);stopPoll();
+  try{
+    await postForm('/api/config/features',{water_probe_enabled:wp?'1':'0',sensor_network_enabled:sn?'1':'0'});
     state.config=await fetchJson('/api/config');
     snapshotConfig();
     forceRenderSettings();

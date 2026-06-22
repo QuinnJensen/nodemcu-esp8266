@@ -34,7 +34,7 @@ button,input{font:inherit}
 .grid{display:grid;gap:16px}
 .grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}
 .grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;position:relative}
 .card h3{margin:0 0 12px;font-size:17px}
 .card p{margin:8px 0;color:var(--muted)}
 .kpi{font-size:30px;font-weight:800;margin:8px 0 4px}
@@ -54,6 +54,10 @@ button,input{font:inherit}
 .pill{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:700}
 .pill.good{background:rgba(111,190,122,.14);color:#9ae5a4}
 .pill.bad{background:rgba(217,108,108,.14);color:#f0a2a2}
+.disabled-feature{opacity:0.45;pointer-events:none;filter:grayscale(1)}
+.disabled-feature-overlay{position:absolute;inset:0;background:rgba(24,27,31,0.7);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;text-align:center;border-radius:var(--radius);z-index:10;pointer-events:auto}
+.disabled-feature-overlay p{margin:0 0 8px 0;color:var(--text);font-weight:600;font-size:14px}
+.disabled-feature-overlay a{color:var(--accent);text-decoration:underline;font-size:13px;font-weight:500}
 .console-wrap{display:flex;flex-direction:column;gap:10px;grid-column:1/-1}
 .console-pane{background:#0b0d10;border:1px solid var(--line);border-radius:12px;padding:10px 12px;height:50vh;min-height:300px;overflow-y:auto;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;line-height:1.45;color:#cfd6dd}
 .clog-line{white-space:pre-wrap;word-break:break-word;padding:1px 0}
@@ -204,7 +208,20 @@ function renderCal(){
 }
 async function doCal(ev){ev.preventDefault();const v=ev.target.actual_power_watts.value;await postForm('/api/heater/calibrate',{actual_power_watts:v});await refreshAll();return false;}
 async function purgeCal(){if(!confirm('Purge calibration table?'))return;await postForm('/api/heater/calibrate/purge',{});await refreshAll();}
+function makeDisabledOverlay() {
+  return `<div class='disabled-feature-overlay'><p>Feature Disabled</p><a href='#' onclick='showPage("settings"); return false;'>Enable in Settings</a></div>`;
+}
 function renderTemps(){
+  const cfg=state.config||{};
+  if (!cfg.sensor_network_enabled) {
+    document.getElementById('page-temps').innerHTML =
+      `<div class='card' style='text-align:center;padding:40px;'>` +
+        `<h3>Temperature Network Feature is Disabled</h3>` +
+        `<p class='muted'>Enable it in the Settings tab to start monitoring temperatures.</p>` +
+        `<div style='margin-top:20px;'><button class='btn' onclick='showPage("settings")'>Go to Settings</button></div>` +
+      `</div>`;
+    return;
+  }
   const s=state.status||{};const sensors=s.sensors||[];
   const rows=sensors.length?sensors.map(x=>{
     const c=x.tempc==null?'-':Number(x.tempc).toFixed(1)+' \u00b0C / '+(x.tempc*9/5+32).toFixed(0)+'\u00b0F';
@@ -255,8 +272,16 @@ function renderSettings(){
   if(state.settingsRendered)return;state.settingsRendered=true;
   const c=state.config||{};
   const ledChecked=c.led_enabled?'checked':'';
+  const waterProbeChecked=c.water_probe_enabled?'checked':'';
+  const sensorNetworkChecked=c.sensor_network_enabled?'checked':'';
+
+  const sensorNamesDisabledClass = !c.sensor_network_enabled ? "disabled-feature" : "";
+  const sensorNamesDisabledOverlay = !c.sensor_network_enabled ? makeDisabledOverlay() : "";
+
   document.getElementById('page-settings').innerHTML=
-    `<div class='card' style='grid-column:1/-1'><h3>Sensor Names</h3><p class='muted small'>Names are persisted by address. Live readings update automatically.</p><table class='table'><thead><tr><th>#</th><th>Address</th><th>Current Name</th><th>Temp</th><th>Rename</th></tr></thead><tbody id='sn-tbody'></tbody></table></div>`+
+    `<div class='card ${sensorNamesDisabledClass}' style='grid-column:1/-1'>`+
+      sensorNamesDisabledOverlay+
+      `<h3>Sensor Names</h3><p class='muted small'>Names are persisted by address. Live readings update automatically.</p><table class='table'><thead><tr><th>#</th><th>Address</th><th>Current Name</th><th>Temp</th><th>Rename</th></tr></thead><tbody id='sn-tbody'></tbody></table></div>`+
     `<div class='card'><h3>MQTT &amp; Prometheus</h3><form onsubmit='return saveServices(event)'>`+
       `<div class='field'><label>MQTT host</label><input name='mqtthost' value='${esc(c.mqtthost||'')}'></div>`+
       `<div class='field'><label>MQTT port</label><input name='mqttport' type='number' value='${c.mqttport??1883}'></div>`+
@@ -267,11 +292,75 @@ function renderSettings(){
       `<button class='btn' type='submit'>Save</button>`+
     `</form><p class='small muted'>Topics: <span class='mono'>${esc((c.topics||{}).command||'-')}</span> / <span class='mono'>${esc((c.topics||{}).status||'-')}</span></p></div>`+
     `<div class='card'><h3>Display &amp; LEDs</h3><div style='display:flex;align-items:center;justify-content:space-between;padding:.5rem 0'><div><div style='font-size:.9rem'>Blue LED flash</div><div class='small muted'>Flashes on sensor reads when enabled</div></div><label style='position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0'><input type='checkbox' id='led-toggle' ${ledChecked} style='opacity:0;width:0;height:0;position:absolute'><span id='led-slider' style='position:absolute;inset:0;background:${c.led_enabled?'var(--accent)':'#333'};border-radius:24px;cursor:pointer;transition:.2s'><span id='led-knob' style='position:absolute;width:18px;height:18px;left:${c.led_enabled?'23':'3'}px;bottom:3px;background:${c.led_enabled?'#fff':'#888'};border-radius:50%;transition:.2s'></span></span></label></div><div class='actions' style='margin-top:.75rem'><button class='btn' onclick='saveLed()'>Save LED Settings</button></div></div>`+
-    `<div class='card'><h3>Timezone</h3><form onsubmit='return saveTz(event)'><div class='field'><label>POSIX TZ</label><input name='timezone' value='${esc(c.timezone||'')}'></div><button class='btn' type='submit'>Save</button></form></div>`;
+    `<div class='card'><h3>Timezone</h3><form onsubmit='return saveTz(event)'><div class='field'><label>POSIX TZ</label><input name='timezone' value='${esc(c.timezone||'')}'></div><button class='btn' type='submit'>Save</button></form></div>`+
+    `<div class='card'>`+
+      `<h3>Feature Switches</h3>`+
+      `<form onsubmit='return saveFeatures(event)'>`+
+        `<div style='display:flex;align-items:center;justify-content:space-between;padding:.5rem 0'>`+
+          `<div><div style='font-size:.9rem'>Water Probe</div><div class='small muted'>Enable/disable the analog water level probe</div></div>`+
+          `<label style='position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0'>`+
+            `<input type='checkbox' id='water-probe-toggle' ${waterProbeChecked} style='opacity:0;width:0;height:0;position:absolute'>`+
+            `<span id='water-probe-slider' style='position:absolute;inset:0;background:${c.water_probe_enabled?'var(--accent)':'#333'};border-radius:24px;cursor:pointer;transition:.2s'>`+
+              `<span id='water-probe-knob' style='position:absolute;width:18px;height:18px;left:${c.water_probe_enabled?'23':'3'}px;bottom:3px;background:${c.water_probe_enabled?'#fff':'#888'};border-radius:50%;transition:.2s'></span>`+
+            `</span>`+
+          `</label>`+
+        `</div>`+
+        `<div style='display:flex;align-items:center;justify-content:space-between;padding:.5rem 0'>`+
+          `<div><div style='font-size:.9rem'>Sensor Network</div><div class='small muted'>Enable/disable the 1-Wire sensor network</div></div>`+
+          `<label style='position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0'>`+
+            `<input type='checkbox' id='sensor-network-toggle' ${sensorNetworkChecked} style='opacity:0;width:0;height:0;position:absolute'>`+
+            `<span id='sensor-network-slider' style='position:absolute;inset:0;background:${c.sensor_network_enabled?'var(--accent)':'#333'};border-radius:24px;cursor:pointer;transition:.2s'>`+
+              `<span id='sensor-network-knob' style='position:absolute;width:18px;height:18px;left:${c.sensor_network_enabled?'23':'3'}px;bottom:3px;background:${c.sensor_network_enabled?'#fff':'#888'};border-radius:50%;transition:.2s'></span>`+
+            `</span>`+
+          `</label>`+
+        `</div>`+
+        `<button class='btn' type='submit'>Save Feature Switches</button>`+
+      `</form>`+
+    `</div>`;
+
+  const chk=document.getElementById('led-toggle');
+  const slider=document.getElementById('led-slider');
+  const knob=document.getElementById('led-knob');
+  if(chk)chk.addEventListener('change',()=>{
+    slider.style.background=chk.checked?'var(--accent)':'#333';
+    knob.style.left=chk.checked?'23px':'3px';
+    knob.style.background=chk.checked?'#fff':'#888';
+  });
+
+  const wpToggle=document.getElementById('water-probe-toggle');
+  const wpSlider=document.getElementById('water-probe-slider');
+  const wpKnob=document.getElementById('water-probe-knob');
+  if(wpToggle)wpToggle.addEventListener('change',()=>{
+    wpSlider.style.background=wpToggle.checked?'var(--accent)':'#333';
+    wpKnob.style.left=wpToggle.checked?'23px':'3px';
+    wpKnob.style.background=wpToggle.checked?'#fff':'#888';
+  });
+
+  const snToggle=document.getElementById('sensor-network-toggle');
+  const snSlider=document.getElementById('sensor-network-slider');
+  const snKnob=document.getElementById('sensor-network-knob');
+  if(snToggle)snToggle.addEventListener('change',()=>{
+    snSlider.style.background=snToggle.checked?'var(--accent)':'#333';
+    snKnob.style.left=snToggle.checked?'23px':'3px';
+    snKnob.style.background=snToggle.checked?'#fff':'#888';
+  });
+
   renderSensorNamesTable(true);
 }
 function forceRenderSettings(){state.settingsRendered=false;renderSettings();}
 async function saveLed(){const chk=document.getElementById('led-toggle');if(!chk)return;try{await postForm('/api/config/display',{led_enabled:chk.checked?'1':'0'});state.config=await fetchJson('/api/config');state.configSnapshot=configFingerprint(state.config);forceRenderSettings();}catch(e){console.warn(e);}}
+async function saveFeatures(ev){
+  ev.preventDefault();
+  const wp=document.getElementById('water-probe-toggle').checked;
+  const sn=document.getElementById('sensor-network-toggle').checked;
+  try{
+    await postForm('/api/config/features',{water_probe_enabled:wp?'1':'0',sensor_network_enabled:sn?'1':'0'});
+    state.config=await fetchJson('/api/config');
+    state.configSnapshot=configFingerprint(state.config);
+    forceRenderSettings();
+  }catch(e){console.warn(e);}
+  return false;
+}
 async function saveServices(ev){ev.preventDefault();const fd=new FormData(ev.target);await postForm('/api/config/services',Object.fromEntries(fd));state.config=await fetchJson('/api/config');state.configSnapshot=configFingerprint(state.config);await refreshAll();return false;}
 async function saveTz(ev){ev.preventDefault();const fd=new FormData(ev.target);await postForm('/api/config/time',Object.fromEntries(fd));state.config=await fetchJson('/api/config');state.configSnapshot=configFingerprint(state.config);await refreshAll();return false;}
 async function renameSensor(ev,index){ev.preventDefault();const fd=new FormData(ev.target);await postForm('/api/sensors/rename',{index,name:fd.get('name')});await refreshAll();return false;}

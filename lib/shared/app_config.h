@@ -22,6 +22,8 @@ struct AppConfig {
   uint16_t mqttPort          = 1883;
   uint16_t prometheusPort    = 9111;
   bool ledEnabled = true;
+  bool waterProbeEnabled = true;
+  bool sensorNetworkEnabled = true;
 #ifdef SHARED_LIB_USE_WATER_PROBE
   uint32_t waterHeartbeatIntervalMs = defaultwaterheartbeatintervalms;
   uint16_t waterThresholds[waterthresholdcount] = {44, 268, 485};

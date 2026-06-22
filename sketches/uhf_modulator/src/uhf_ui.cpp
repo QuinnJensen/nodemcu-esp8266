@@ -39,7 +39,10 @@ static void uhfBody() {
   display.print(txCount);
 
 #ifdef SHARED_LIB_USE_ONEWIRE
-  if (sensorCount > 0) {
+  if (!config.sensorNetworkEnabled) {
+    display.setCursor(0, 48);
+    display.print("Sensors disabled");
+  } else if (sensorCount > 0) {
     display.setCursor(0, 48);
     uint8_t idx = 0;
     String name = sensorNames[idx][0] ? String(sensorNames[idx]) : String("S1");
@@ -66,13 +69,15 @@ static void uhfMetricsExtra(String& m) {
   m += "# HELP uhf_tx_busy 1 while a transmission is in progress.\n";
   m += "# TYPE uhf_tx_busy gauge\nuhf_tx_busy{id=\"" + idLabel + "\"} " + String(txBusy ? 1 : 0) + "\n";
 #ifdef SHARED_LIB_USE_ONEWIRE
-  m += "# HELP uhf_sensor_count Number of active 1-Wire sensors.\n";
-  m += "# TYPE uhf_sensor_count gauge\nuhf_sensor_count{id=\"" + idLabel + "\"} " + String(sensorCount) + "\n";
-  for (uint8_t i = 0; i < sensorCount; i++) {
-    String labels = "id=\"" + idLabel + "\",index=\"" + String(i + 1) + "\",name=\"" + prometheusEscaped(String(sensorNames[i])) + "\"";
-    if (!isnan(sensorTempsC[i])) {
-      m += "uhf_sensor_temp_c{" + labels + "} " + String(sensorTempsC[i], 4) + "\n";
-      m += "uhf_sensor_temp_f{" + labels + "} " + String(sensorTempsC[i] * 9.0f / 5.0f + 32.0f, 4) + "\n";
+  if (config.sensorNetworkEnabled) {
+    m += "# HELP uhf_sensor_count Number of active 1-Wire sensors.\n";
+    m += "# TYPE uhf_sensor_count gauge\nuhf_sensor_count{id=\"" + idLabel + "\"} " + String(sensorCount) + "\n";
+    for (uint8_t i = 0; i < sensorCount; i++) {
+      String labels = "id=\"" + idLabel + "\",index=\"" + String(i + 1) + "\",name=\"" + prometheusEscaped(String(sensorNames[i])) + "\"";
+      if (!isnan(sensorTempsC[i])) {
+        m += "uhf_sensor_temp_c{" + labels + "} " + String(sensorTempsC[i], 4) + "\n";
+        m += "uhf_sensor_temp_f{" + labels + "} " + String(sensorTempsC[i] * 9.0f / 5.0f + 32.0f, 4) + "\n";
+      }
     }
   }
 #endif

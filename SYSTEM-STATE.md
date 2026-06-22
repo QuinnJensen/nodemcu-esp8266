@@ -19,9 +19,16 @@ The project contains a modular shared library under `lib/shared` and three firmw
 *   **Instruction File Migration:** Renamed the legacy `GEMINI.md` to `ANTIGRAVITY.md` as part of migrating the codebase context to the Antigravity assistant.
 *   **Portability Fixes:** Modified the root `platformio.ini` to replace hardcoded, absolute user directory paths (`/home/qcjensen/nodemcu-esp8266/...`) with portable, relative paths (`sketches/sensors/data`, etc.).
 *   **Build Validation:** Successfully validated full compilation of all three environments using PlatformIO:
-    *   `sensors`: Built successfully in 2m 55s.
-    *   `water_heater`: Built successfully in 2m 21s.
-    *   `uhf_modulator`: Built successfully in 2m 26s.
+    *   `sensors`: Built successfully.
+    *   `water_heater`: Built successfully.
+    *   `uhf_modulator`: Built successfully.
+*   **Feature Switches Implementation:** Added two runtime feature switches (`waterProbeEnabled` and `sensorNetworkEnabled`) with:
+    *   Unified configuration options in `AppConfig` and endpoints (`/api/config/features`).
+    *   Real-time logic gating in main loop tasks.
+    *   Greyed-out cards, clean disabled page states, and hotlinks to settings in the Web UIs.
+    *   Command validation and error publishing over MQTT for disabled features.
+    *   Prometheus metrics exclusion (lobotomization) when disabled.
+    *   On-board OLED display integration (printing "- disabled -", "Sensors off", or "Sensors disabled" fallbacks on the status display screens when the relevant features are switched off).
 
 ## 4. Environment-Specific Commands
 To run PlatformIO commands from the root directory using the local python virtual environment:

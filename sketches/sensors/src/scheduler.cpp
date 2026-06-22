@@ -14,32 +14,40 @@ void runScheduledTasks() {
   unsigned long now = millis();
 
   // Drive the non-blocking water probe state machine every tick
-  updateWaterSample();
+  if (config.waterProbeEnabled) {
+    updateWaterSample();
+  }
 
   // Phase 2: collect temperature results 800ms after conversion was requested
-  if (waitingToCollect && conversionPending &&
-      now - conversionRequestedMs >= 800) {
-    collectTemperatureResults();
-    publishPerSensorStatuses();
+  if (config.sensorNetworkEnabled) {
+    if (waitingToCollect && conversionPending &&
+        now - conversionRequestedMs >= 800) {
+      collectTemperatureResults();
+      publishPerSensorStatuses();
+      waitingToCollect = false;
+    }
+
+    // Sensor heartbeat: scan + fire async conversion
+    // Delay if water probe is currently active to prevent LED/timing conflicts
+    if (now - lastSensorHeartbeatMs >= sensorheartbeatintervalms && !waterProbing) {
+      Serial.println("sample sensors");
+      scanSensors();
+      requestTemperatureConversion();
+      waitingToCollect = true;
+      lastSensorHeartbeatMs = now;
+    }
+  } else {
     waitingToCollect = false;
   }
 
-  // Sensor heartbeat: scan + fire async conversion
-  // Delay if water probe is currently active to prevent LED/timing conflicts
-  if (now - lastSensorHeartbeatMs >= sensorheartbeatintervalms && !waterProbing) {
-    Serial.println("sample sensors");
-    scanSensors();
-    requestTemperatureConversion();
-    waitingToCollect = true;
-    lastSensorHeartbeatMs = now;
-  }
-
   // Water heartbeat: kick off a new (non-blocking) sample
-  if (now - lastWaterHeartbeatMs >= config.waterHeartbeatIntervalMs) {
-    Serial.println("sample water level");
-    beginWaterSample();
-    lastWaterHeartbeatMs = now;
-    // publishWaterStatus() is called inside updateWaterSample() on completion
+  if (config.waterProbeEnabled) {
+    if (now - lastWaterHeartbeatMs >= config.waterHeartbeatIntervalMs) {
+      Serial.println("sample water level");
+      beginWaterSample();
+      lastWaterHeartbeatMs = now;
+      // publishWaterStatus() is called inside updateWaterSample() on completion
+    }
   }
 
   if (now - lastAggregateHeartbeatMs >= aggregateheartbeatintervalms) {

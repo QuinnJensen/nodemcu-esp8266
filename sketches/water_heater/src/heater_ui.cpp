@@ -48,26 +48,30 @@ static void heaterBody() {
 
   display.setCursor(0, 42);
 #ifdef SHARED_LIB_USE_ONEWIRE
-  if (useFakeSensors) display.print("(S) ");
-
-  if (sensorCount > 0) {
-    // Rotate through sensors every 3 seconds
-    uint8_t idx = (millis() / 3000) % sensorCount;
-    
-    String name = sensorNames[idx][0] ? String(sensorNames[idx]) : ("S" + String(idx + 1));
-    if (name.length() > 6) name = name.substring(0, 6);
-    display.print(name);
-    display.print(": ");
-    
-    if (!isnan(sensorTempsC[idx])) {
-      display.print(String(sensorTempsC[idx] * 9.0f / 5.0f + 32.0f, 1));
-      display.print("F");
-    } else {
-      display.print("disc");
-    }
+  if (!config.sensorNetworkEnabled) {
+    display.print("Sensors off");
   } else {
-    display.print("On:");
-    display.print(onTicks % 1000);
+    if (useFakeSensors) display.print("(S) ");
+
+    if (sensorCount > 0) {
+      // Rotate through sensors every 3 seconds
+      uint8_t idx = (millis() / 3000) % sensorCount;
+      
+      String name = sensorNames[idx][0] ? String(sensorNames[idx]) : ("S" + String(idx + 1));
+      if (name.length() > 6) name = name.substring(0, 6);
+      display.print(name);
+      display.print(": ");
+      
+      if (!isnan(sensorTempsC[idx])) {
+        display.print(String(sensorTempsC[idx] * 9.0f / 5.0f + 32.0f, 1));
+        display.print("F");
+      } else {
+        display.print("disc");
+      }
+    } else {
+      display.print("On:");
+      display.print(onTicks % 1000);
+    }
   }
 #else
   display.print("On:");
@@ -95,13 +99,15 @@ static void heaterMetricsExtra(String& m) {
   m += "# HELP wh_sim_on_ticks_total Modulator on ticks.\n";
   m += "# TYPE wh_sim_on_ticks_total counter\nwh_sim_on_ticks_total{id=\"" + idLabel + "\"} " + String(onTicks) + "\n";
 #ifdef SHARED_LIB_USE_ONEWIRE
-  m += "# HELP wh_sensor_count Number of active 1-Wire sensors.\n";
-  m += "# TYPE wh_sensor_count gauge\nwh_sensor_count{id=\"" + idLabel + "\"} " + String(sensorCount) + "\n";
-  for (uint8_t i = 0; i < sensorCount; i++) {
-    String labels = "id=\"" + idLabel + "\",index=\"" + String(i + 1) + "\",name=\"" + prometheusEscaped(String(sensorNames[i])) + "\"";
-    if (!isnan(sensorTempsC[i])) {
-      m += "wh_sensor_temp_c{" + labels + "} " + String(sensorTempsC[i], 4) + "\n";
-      m += "wh_sensor_temp_f{" + labels + "} " + String(sensorTempsC[i] * 9.0f / 5.0f + 32.0f, 4) + "\n";
+  if (config.sensorNetworkEnabled) {
+    m += "# HELP wh_sensor_count Number of active 1-Wire sensors.\n";
+    m += "# TYPE wh_sensor_count gauge\nwh_sensor_count{id=\"" + idLabel + "\"} " + String(sensorCount) + "\n";
+    for (uint8_t i = 0; i < sensorCount; i++) {
+      String labels = "id=\"" + idLabel + "\",index=\"" + String(i + 1) + "\",name=\"" + prometheusEscaped(String(sensorNames[i])) + "\"";
+      if (!isnan(sensorTempsC[i])) {
+        m += "wh_sensor_temp_c{" + labels + "} " + String(sensorTempsC[i], 4) + "\n";
+        m += "wh_sensor_temp_f{" + labels + "} " + String(sensorTempsC[i] * 9.0f / 5.0f + 32.0f, 4) + "\n";
+      }
     }
   }
 #endif

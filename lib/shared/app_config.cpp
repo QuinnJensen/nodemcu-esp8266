@@ -117,6 +117,8 @@ bool loadConfig() {
   config.mqttPort = 1883;
   config.prometheusPort = 9111;
   config.ledEnabled = true;
+  config.waterProbeEnabled = true;
+  config.sensorNetworkEnabled = true;
 #ifdef SHARED_LIB_USE_WATER_PROBE
   config.waterHeartbeatIntervalMs = defaultwaterheartbeatintervalms;
   loadDefaultWaterThresholds();
@@ -140,6 +142,8 @@ bool loadConfig() {
   config.mqttPort           = doc["mqttport"]           | 1883;
   config.prometheusPort     = doc["prometheusport"]     | 9111;
   config.ledEnabled = doc["ledenabled"] | true;
+  config.waterProbeEnabled = doc["water_probe_enabled"] | true;
+  config.sensorNetworkEnabled = doc["sensor_network_enabled"] | true;
 
 #ifdef SHARED_LIB_USE_WATER_PROBE
   config.waterHeartbeatIntervalMs = doc["waterheartbeatintervalms"] | defaultwaterheartbeatintervalms;
@@ -168,6 +172,8 @@ bool saveConfig() {
   doc["timezone"]               = config.timezone;
   doc["prometheusport"]         = config.prometheusPort;
   doc["ledenabled"]             = config.ledEnabled;
+  doc["water_probe_enabled"]     = config.waterProbeEnabled;
+  doc["sensor_network_enabled"]   = config.sensorNetworkEnabled;
 
 #ifdef SHARED_LIB_USE_WATER_PROBE
   doc["waterheartbeatintervalms"] = config.waterHeartbeatIntervalMs;

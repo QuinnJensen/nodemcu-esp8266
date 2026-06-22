@@ -18,15 +18,23 @@
 // ── Display body: sensor list + water line ─────────────────────────────────
 static void sensorsDisplayBody() {
   display.setCursor(0, 16);
-  display.print("Sensors(");
-  display.print(sensorCount);
-  display.print(")");
-  if (!useFakeSensors && sensorNetworkDetected && sensorCount == 0) display.print(" offline");
-  else if (useFakeSensors) display.print(" sim");
+  if (!config.sensorNetworkEnabled) {
+    display.print("Sensors disabled");
+  } else {
+    display.print("Sensors(");
+    display.print(sensorCount);
+    display.print(")");
+    if (!useFakeSensors && sensorNetworkDetected && sensorCount == 0) display.print(" offline");
+    else if (useFakeSensors) display.print(" sim");
+  }
 
   for (uint8_t row = 0; row < 2; row++) {
     uint8_t y = 28 + (row * 10);
     display.setCursor(0, y);
+    if (!config.sensorNetworkEnabled) {
+      if (row == 0) display.print("- disabled -");
+      continue;
+    }
     if (sensorCount == 0) {
       if (row == 0) display.print("no sensors");
       continue;
@@ -43,8 +51,11 @@ static void sensorsDisplayBody() {
   }
   display.setCursor(0, 48);
   display.print("Water ");
-  if (waterProbing) display.print("[probing]");
-  else {
+  if (!config.waterProbeEnabled) {
+    display.print("disabled");
+  } else if (waterProbing) {
+    display.print("[probing]");
+  } else {
     display.print(waterLevelLabel(waterLevelIndex));
     display.print(" ");
     display.print(waterVoltage, 2);
@@ -55,40 +66,47 @@ static void sensorsDisplayBody() {
 // ── Metrics extras ─────────────────────────────────────────────────────────
 static void sensorsMetricsExtra(String& m) {
   String idLabel = prometheusEscaped(safeDeviceId());
-  m += "# HELP temp_sensor_count Number of active sensors.\n";
-  m += "# TYPE temp_sensor_count gauge\n";
-  m += "temp_sensor_count{id=\"" + idLabel + "\"} " + String(sensorCount) + "\n";
-  m += "# HELP temp_sensor_network_detected Real sensor network detected.\n";
-  m += "# TYPE temp_sensor_network_detected gauge\n";
-  m += String("temp_sensor_network_detected{id=\"") + idLabel + "\"} " + (sensorNetworkDetected ? "1\n" : "0\n");
-  m += "# HELP temp_sensor_simulated Simulated sensors active.\n";
-  m += "# TYPE temp_sensor_simulated gauge\n";
-  m += String("temp_sensor_simulated{id=\"") + idLabel + "\"} " + (useFakeSensors ? "1\n" : "0\n");
-  m += "# HELP temp_last_sensor_sample_seconds Seconds since last sensor sample.\n";
-  m += "# TYPE temp_last_sensor_sample_seconds gauge\n";
-  m += "temp_last_sensor_sample_seconds{id=\"" + idLabel + "\"} " + String((millis() - lastSensorSampleMs) / 1000UL) + "\n";
-
-  String waterLevelLabelEsc = prometheusEscaped(String(waterLevelLabel(waterLevelIndex)));
-  String wb = "id=\"" + idLabel + "\",level=\"" + waterLevelLabelEsc + "\"";
-  m += "water_probe_present{" + wb + "} " + String(waterProbePresent ? 1 : 0) + "\n";
-  m += "water_valid{" + wb + "} " + String(waterValid ? 1 : 0) + "\n";
-  m += "water_adc_raw{" + wb + "} " + String(waterAdcRaw) + "\n";
-  m += "water_voltage_v{" + wb + "} " + String(waterVoltage, 4) + "\n";
-  m += "water_level_index{" + wb + "} " + String(int(waterLevelIndex)) + "\n";
-  m += "water_heartbeat_interval_ms{" + wb + "} " + String(config.waterHeartbeatIntervalMs) + "\n";
-  m += "water_last_sample_seconds{" + wb + "} " + String(lastWaterSampleMs > 0 ? ((millis() - lastWaterSampleMs) / 1000UL) : 0) + "\n";
-  for (uint8_t i = 0; i < waterthresholdcount; i++) {
-    m += "water_threshold_adc{id=\"" + idLabel + "\",level=\"" + prometheusEscaped(String(waterLevelLabel(i))) + "\",level_index=\"" + String(i) + "\"} " + String(config.waterThresholds[i]) + "\n";
+  if (config.sensorNetworkEnabled) {
+    m += "# HELP temp_sensor_count Number of active sensors.\n";
+    m += "# TYPE temp_sensor_count gauge\n";
+    m += "temp_sensor_count{id=\"" + idLabel + "\"} " + String(sensorCount) + "\n";
+    m += "# HELP temp_sensor_network_detected Real sensor network detected.\n";
+    m += "# TYPE temp_sensor_network_detected gauge\n";
+    m += String("temp_sensor_network_detected{id=\"") + idLabel + "\"} " + (sensorNetworkDetected ? "1\n" : "0\n");
+    m += "# HELP temp_sensor_simulated Simulated sensors active.\n";
+    m += "# TYPE temp_sensor_simulated gauge\n";
+    m += String("temp_sensor_simulated{id=\"") + idLabel + "\"} " + (useFakeSensors ? "1\n" : "0\n");
+    m += "# HELP temp_last_sensor_sample_seconds Seconds since last sensor sample.\n";
+    m += "# TYPE temp_last_sensor_sample_seconds gauge\n";
+    m += "temp_last_sensor_sample_seconds{id=\"" + idLabel + "\"} " + String((millis() - lastSensorSampleMs) / 1000UL) + "\n";
   }
-  for (uint8_t i = 0; i < sensorCount; i++) {
-    String labels = "id=\"" + idLabel + "\"";
-    labels += ",index=\"" + String(i + 1) + "\"";
-    labels += ",address=\"" + prometheusEscaped(sensorAddressString(i)) + "\"";
-    labels += ",name=\"" + prometheusEscaped(String(sensorNames[i])) + "\"";
-    m += "temp_sensor_connected{" + labels + "} " + String(sensorPresent[i] ? 1 : 0) + "\n";
-    if (!isnan(sensorTempsC[i])) {
-      m += "temp_sensor_temp_c{" + labels + "} " + String(sensorTempsC[i], 4) + "\n";
-      m += "temp_sensor_temp_f{" + labels + "} " + String(sensorTempsC[i] * 9.0f / 5.0f + 32.0f, 4) + "\n";
+
+  if (config.waterProbeEnabled) {
+    String waterLevelLabelEsc = prometheusEscaped(String(waterLevelLabel(waterLevelIndex)));
+    String wb = "id=\"" + idLabel + "\",level=\"" + waterLevelLabelEsc + "\"";
+    m += "water_probe_present{" + wb + "} " + String(waterProbePresent ? 1 : 0) + "\n";
+    m += "water_valid{" + wb + "} " + String(waterValid ? 1 : 0) + "\n";
+    m += "water_adc_raw{" + wb + "} " + String(waterAdcRaw) + "\n";
+    m += "water_voltage_v{" + wb + "} " + String(waterVoltage, 4) + "\n";
+    m += "water_level_index{" + wb + "} " + String(int(waterLevelIndex)) + "\n";
+    m += "water_heartbeat_interval_ms{" + wb + "} " + String(config.waterHeartbeatIntervalMs) + "\n";
+    m += "water_last_sample_seconds{" + wb + "} " + String(lastWaterSampleMs > 0 ? ((millis() - lastWaterSampleMs) / 1000UL) : 0) + "\n";
+    for (uint8_t i = 0; i < waterthresholdcount; i++) {
+      m += "water_threshold_adc{id=\"" + idLabel + "\",level=\"" + prometheusEscaped(String(waterLevelLabel(i))) + "\",level_index=\"" + String(i) + "\"} " + String(config.waterThresholds[i]) + "\n";
+    }
+  }
+
+  if (config.sensorNetworkEnabled) {
+    for (uint8_t i = 0; i < sensorCount; i++) {
+      String labels = "id=\"" + idLabel + "\"";
+      labels += ",index=\"" + String(i + 1) + "\"";
+      labels += ",address=\"" + prometheusEscaped(sensorAddressString(i)) + "\"";
+      labels += ",name=\"" + prometheusEscaped(String(sensorNames[i])) + "\"";
+      m += "temp_sensor_connected{" + labels + "} " + String(sensorPresent[i] ? 1 : 0) + "\n";
+      if (!isnan(sensorTempsC[i])) {
+        m += "temp_sensor_temp_c{" + labels + "} " + String(sensorTempsC[i], 4) + "\n";
+        m += "temp_sensor_temp_f{" + labels + "} " + String(sensorTempsC[i] * 9.0f / 5.0f + 32.0f, 4) + "\n";
+      }
     }
   }
 }
