@@ -40,15 +40,7 @@ void runScheduledTasks() {
     waitingToCollect = false;
   }
 
-  // Water heartbeat: kick off a new (non-blocking) sample
-  if (config.waterProbeEnabled) {
-    if (now - lastWaterHeartbeatMs >= config.waterHeartbeatIntervalMs) {
-      Serial.println("sample water level");
-      beginWaterSample();
-      lastWaterHeartbeatMs = now;
-      // publishWaterStatus() is called inside updateWaterSample() on completion
-    }
-  }
+  // Water heartbeat is driven internally by updateWaterSample() every 15 seconds
 
   if (now - lastAggregateHeartbeatMs >= aggregateheartbeatintervalms) {
     Serial.println("heartbeat");

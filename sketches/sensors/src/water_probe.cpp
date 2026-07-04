@@ -10,22 +10,8 @@ static const char* waterLevelLabelsLocal[waterlevelcount] = {
   ">40gal", "15-40gal", "5-15gal", "<5gal"
 };
 
-enum WaterProbeState {
-  WPS_IDLE,
-  WPS_STABILIZE,   // probe pin HIGH, waiting 25 ms settle
-  WPS_SAMPLE,      // accumulating ADC readings for watermeasurewindowms
-  WPS_FINISH       // window done, compute result
-};
-
-static WaterProbeState probeState  = WPS_IDLE;
-static unsigned long   phaseStart  = 0;
-static uint32_t        adcSum      = 0;
-static uint32_t        adcSamples  = 0;
-
 void initWaterProbePins() {
-  pinMode(probeOnPin, OUTPUT);
   pinMode(blueLedPin, OUTPUT);
-  digitalWrite(probeOnPin, LOW);
 }
 
 const char* waterLevelLabel(uint8_t idx) {
@@ -40,68 +26,36 @@ uint8_t classifyWaterLevel(uint16_t adc) {
   return WATER_LT_5;
 }
 
-// Called by scheduler / web handler to request a new sample.
+// Synchronously sample A0 3 times and average, updating global states
 void beginWaterSample() {
-  if (probeState != WPS_IDLE) return;   // already running
-  adcSum      = 0;
-  adcSamples  = 0;
   waterProbing = true;
   if (config.ledEnabled) setBlueLed(true);
-  digitalWrite(probeOnPin, HIGH);
-  phaseStart  = millis();
-  probeState  = WPS_STABILIZE;
+
+  uint32_t sum = 0;
+  sum += analogRead(A0);
+  delay(2);
+  sum += analogRead(A0);
+  delay(2);
+  sum += analogRead(A0);
+
+  waterAdcRaw       = (uint16_t)(sum / 3);
+  waterLevelIndex   = classifyWaterLevel(waterAdcRaw);
+  waterVoltage      = (float)waterAdcRaw * 3.3f / 1023.0f;
+  waterValid        = true;
+  waterProbePresent = true; // Constantly connected now
+  lastWaterSampleMs = millis();
+
+  if (config.ledEnabled) setBlueLed(false);
+  waterProbing = false;
+
+  publishWaterStatus();
 }
 
-// Called every loop() tick.  All work is time-sliced; no delay() anywhere.
+// Drive automatic sampling every 15 seconds
 void updateWaterSample() {
-  if (probeState == WPS_IDLE) return;
-
   unsigned long now = millis();
-
-  // Keep the spinner center dot alive every tick while probing
-  pulseSpinnerDot(displayintervalms * 2);
-
-  if (probeState == WPS_STABILIZE) {
-    if (now - phaseStart < 25) return;   // wait 25 ms for probe to settle
-
-    // Probe present (always assumed now) -- begin accumulation window
-    waterProbePresent = true;
-    adcSum     += analogRead(A0);
-    adcSamples  = 1;
-    phaseStart  = now;
-    probeState  = WPS_SAMPLE;
-    return;
-  }
-
-  if (probeState == WPS_SAMPLE) {
-    if (now - phaseStart < watermeasurewindowms) {
-      // Accumulate a small batch each tick (no delay)
-      for (uint8_t i = 0; i < 8; i++) {
-        adcSum += analogRead(A0);
-      }
-      adcSamples += 8;
-      return;
-    }
-    // Window expired -- fall through to finish
-    probeState = WPS_FINISH;
-  }
-
-  if (probeState == WPS_FINISH) {
-    digitalWrite(probeOnPin, LOW);
-    if (config.ledEnabled) setBlueLed(false);
-
-    if (adcSamples == 0) adcSamples = 1;
-    waterAdcRaw     = (uint16_t)(adcSum / adcSamples);
-    waterLevelIndex = classifyWaterLevel(waterAdcRaw);
-
-    waterVoltage      = (float)waterAdcRaw * 3.3f / 1023.0f;
-    waterValid        = true;
-    lastWaterSampleMs = millis();
-    waterProbing      = false;
-    probeState        = WPS_IDLE;
-
-    // Publish result now that the sample is complete
-    publishWaterStatus();
+  if (lastWaterSampleMs == 0 || now - lastWaterSampleMs >= 15000) {
+    beginWaterSample();
   }
 }
 
