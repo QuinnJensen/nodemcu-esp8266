@@ -29,6 +29,11 @@ The project contains a modular shared library under `lib/shared` and three firmw
     *   Command validation and error publishing over MQTT for disabled features.
     *   Prometheus metrics exclusion (lobotomization) when disabled.
     *   On-board OLED display integration (printing "- disabled -", "Sensors off", or "Sensors disabled" fallbacks on the status display screens when the relevant features are switched off).
+*   **Water Level Probe v3 Upgrade:** Rewrote the analog level-detection code to support the simplified hardware schematic (`new water probe v3.jpg`):
+    *   Removed legacy GPIO `PROBE_EN` / `D0` toggle control logic.
+    *   Implemented synchronous 3-conversion ADC averages on the `A0` input.
+    *   Simplified sampling to run on a clean 15-second loop inside `updateWaterSample()`.
+    *   Preserved existing threshold array mapping and classification bounds.
 
 ## 4. Environment-Specific Commands
 To run PlatformIO commands from the root directory using the local python virtual environment:
