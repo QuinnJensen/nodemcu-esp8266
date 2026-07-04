@@ -53,6 +53,8 @@ void setup() {
   delay(50);
   bootMillis = millis();
 
+  WiFi.setSleepMode(WIFI_NONE_SLEEP);
+
   initDisplayUi();
   registerSensorsUiHooks();
   setStatusMessage("booting", 1500);
