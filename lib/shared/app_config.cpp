@@ -31,7 +31,7 @@ void buildTopics() {
   snprintf(statusTopic,  sizeof(statusTopic),  "%s/%s/status",  config.mcuBaseTopic, idPart.c_str());
   snprintf(resultsTopic, sizeof(resultsTopic), "%s/%s/results", config.mcuBaseTopic, idPart.c_str());
 #ifdef SHARED_LIB_USE_WATER_PROBE
-  snprintf(waterTopic,   sizeof(waterTopic),   "%s/%s/water",   config.sensorBaseTopic, idPart.c_str());
+  snprintf(waterTopic,   sizeof(waterTopic),   "%s/%s/water",   config.mcuBaseTopic, idPart.c_str());
 #endif
 }
 
