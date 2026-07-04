@@ -26,7 +26,7 @@ uint8_t classifyWaterLevel(uint16_t adc) {
   return WATER_LT_5;
 }
 
-// Perform a 100ms oversampling burst (10 samples spaced 10ms apart)
+// Perform a 80ms oversampling burst with outlier rejection (40 samples, 2ms spacing)
 void beginWaterSample() {
   if (waterProbing) return; // Prevent re-entry
   waterProbing = true;
@@ -35,15 +35,32 @@ void beginWaterSample() {
 
   // Discard first read to clear multiplexer state and allow voltage to settle
   analogRead(A0);
-  delay(10);
+  delay(2);
 
-  uint32_t sum = 0;
-  for (uint8_t i = 0; i < 10; i++) {
-    sum += analogRead(A0);
-    delay(10);
+  uint16_t samples[40];
+  for (uint8_t i = 0; i < 40; i++) {
+    samples[i] = analogRead(A0);
+    delay(2);
   }
 
-  waterAdcRaw       = (uint16_t)(sum / 10);
+  // Sort samples in ascending order using insertion sort
+  for (uint8_t i = 1; i < 40; i++) {
+    uint16_t key = samples[i];
+    int16_t j = (int16_t)i - 1;
+    while (j >= 0 && samples[j] > key) {
+      samples[j + 1] = samples[j];
+      j--;
+    }
+    samples[j + 1] = key;
+  }
+
+  // Calculate the trimmed mean by discarding the lowest 10 and highest 10 samples
+  uint32_t sum = 0;
+  for (uint8_t i = 10; i < 30; i++) {
+    sum += samples[i];
+  }
+
+  waterAdcRaw       = (uint16_t)(sum / 20);
   waterLevelIndex   = classifyWaterLevel(waterAdcRaw);
   waterVoltage      = (float)waterAdcRaw * 3.3f / 1023.0f;
   waterValid        = true;

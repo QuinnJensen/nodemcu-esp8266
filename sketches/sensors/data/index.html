@@ -409,7 +409,7 @@ function renderDashboard(){
         `<p class='footer-note'>Actions are queued and executed after the HTTP response is sent to keep the ESP8266 responsive.</p>`+
       `</div>`+
       `<div class='card' style='grid-column:1/-1'><h3>Pinout Reference</h3><p class='muted small'>Physical hardware mapping for the NodeMCU board.</p><table class='table small mono'><thead><tr><th>Pin</th><th>Function</th><th>Note</th></tr></thead><tbody>`+
-        `<tr><td>D0</td><td>Probe ON</td><td>Excitation for water probe</td></tr>`+
+        `<tr><td>D0</td><td>-</td><td>(Unused - Probe excitation removed)</td></tr>`+
         `<tr><td>D1</td><td>-</td><td>(Unused in this mission)</td></tr>`+
         `<tr><td>D2</td><td>1-Wire</td><td>DS18B20 data bus</td></tr>`+
         `<tr><td>D3</td><td>FLASH</td><td>Hold on boot for Config Portal</td></tr>`+
@@ -435,6 +435,14 @@ function renderTemps(){
   const t=state.temps||{};
   const sensors=t.sensors||[];
   document.getElementById('page-temps').innerHTML=`<div class='grid two'><div class='card'><h3>Temperature Network</h3><p><b>Detected:</b> ${t.sensorcount??0}</p><p><b>Physical network seen:</b> ${fmtBool(!!t.networkdetected)}</p><p><b>Simulated sensors:</b> ${fmtBool(!!t.simulated)}</p><div class='actions'><button class='btn btn-action' onclick="postScan()">Scan / Rediscover</button><button class='btn secondary' onclick='refreshAll()'>Refresh</button></div></div><div class='card'><h3>Sampling</h3><p><b>Last sample age:</b> ${ageSec(t.last_sample_ms_age)}</p><p><b>Last rescan age:</b> ${ageSec(t.last_rescan_ms_age)}</p><p class='footer-note'>Use this page to watch the current 1-Wire roster and temperatures without changing MQTT behavior.</p></div></div><div class='card'><h3>Live Sensors</h3><table class='table'><thead><tr><th>#</th><th>Name</th><th>Address</th><th>State</th><th>C</th><th>F</th></tr></thead><tbody>${sensors.length?sensors.map(s=>`<tr><td>${s.index}</td><td>${esc(s.name)}</td><td class='mono'>${esc(s.address)}</td><td>${s.connected?`<span class='pill good'>connected</span>`:`<span class='pill bad'>disconnected</span>`}</td><td>${s.tempc===null?'-':Number(s.tempc).toFixed(2)}</td><td>${s.tempc===null?'-':tempF(s.tempc)}</td></tr>`).join(''):`<tr><td colspan='6' class='muted'>No sensors available.</td></tr>`}</tbody></table></div>`;
+}
+
+function updateThreshVolts(input, spanId) {
+  if (!input) return;
+  const val = parseInt(input.value) || 0;
+  const volts = (val * 3.3 / 1023.0).toFixed(2);
+  const el = document.getElementById(spanId);
+  if (el) el.textContent = `(${volts}V)`;
 }
 
 function renderWater(){
@@ -463,7 +471,11 @@ function renderWater(){
   
   const threshEl=document.getElementById('water-thresh-card');
   if(threshEl && !threshEl.contains(document.activeElement)){
-    threshEl.innerHTML=`<h3>Thresholds</h3><p class='muted small'>ADC &lt; T1 is <b>&gt;40 gal</b>. T1 &le; ADC &lt; T2 is <b>15-40 gal</b>. T2 &le; ADC &lt; T3 is <b>5-15 gal</b>. ADC &ge; T3 is <b>&lt;5 gal</b>.</p><form class='form' onsubmit='saveWater(event)'><div class='field'><label>Heartbeat interval (ms)</label><input name='intervalms' type='number' min='1000' max='86400000' value='${(cfg.water||{}).intervalms??60000}'></div><div class='grid three'><div class='field'><label>T1 (&gt;40 gal)</label><input name='t0' type='number' min='0' max='1023' value='${th[0]??44}'></div><div class='field'><label>T2 (15-40 gal)</label><input name='t1' type='number' min='0' max='1023' value='${th[1]??268}'></div><div class='field'><label>T3 (5-15 gal)</label><input name='t2' type='number' min='0' max='1023' value='${th[2]??485}'></div></div><div class='actions'><button class='btn btn-action' type='submit'>Save Water Settings</button></div></form>`;
+    threshEl.innerHTML=`<h3>Thresholds</h3><p class='muted small'>ADC &lt; T1 is <b>&gt;40 gal</b>. T1 &le; ADC &lt; T2 is <b>15-40 gal</b>. T2 &le; ADC &lt; T3 is <b>5-15 gal</b>. ADC &ge; T3 is <b>&lt;5 gal</b>.</p><form class='form' onsubmit='saveWater(event)'><div class='field'><label>Heartbeat interval (ms)</label><input name='intervalms' type='number' min='1000' max='86400000' value='${(cfg.water||{}).intervalms??60000}'></div><div class='grid three'><div class='field'><label>T1 (&gt;40 gal) <span id='t0-volts' class='muted small' style='margin-left:4px; font-weight:normal;'></span></label><input name='t0' type='number' min='0' max='1023' value='${th[0]??44}' oninput='updateThreshVolts(this, "t0-volts")'></div><div class='field'><label>T2 (15-40 gal) <span id='t1-volts' class='muted small' style='margin-left:4px; font-weight:normal;'></span></label><input name='t1' type='number' min='0' max='1023' value='${th[1]??268}' oninput='updateThreshVolts(this, "t1-volts")'></div><div class='field'><label>T3 (5-15 gal) <span id='t2-volts' class='muted small' style='margin-left:4px; font-weight:normal;'></span></label><input name='t2' type='number' min='0' max='1023' value='${th[2]??485}' oninput='updateThreshVolts(this, "t2-volts")'></div></div><div class='actions'><button class='btn btn-action' type='submit'>Save Water Settings</button></div></form>`;
+    
+    updateThreshVolts(threshEl.querySelector('input[name=t0]'), 't0-volts');
+    updateThreshVolts(threshEl.querySelector('input[name=t1]'), 't1-volts');
+    updateThreshVolts(threshEl.querySelector('input[name=t2]'), 't2-volts');
   }
 }
 
