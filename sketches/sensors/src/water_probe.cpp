@@ -26,16 +26,19 @@ uint8_t classifyWaterLevel(uint16_t adc) {
   return WATER_LT_5;
 }
 
-// Synchronously sample A0 3 times and average, updating global states
 void beginWaterSample() {
   waterProbing = true;
   if (config.ledEnabled) setBlueLed(true);
 
+  // Discard the first reading to clear internal ADC switching/cache state
+  analogRead(A0);
+  delay(5);
+
   uint32_t sum = 0;
   sum += analogRead(A0);
-  delay(2);
+  delay(5);
   sum += analogRead(A0);
-  delay(2);
+  delay(5);
   sum += analogRead(A0);
 
   waterAdcRaw       = (uint16_t)(sum / 3);
