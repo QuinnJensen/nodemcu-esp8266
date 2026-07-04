@@ -10,6 +10,12 @@ static const char* waterLevelLabelsLocal[waterlevelcount] = {
   ">40gal", "15-40gal", "5-15gal", "<5gal"
 };
 
+// Asynchronous sampling state
+static bool          isSampling     = false;
+static unsigned long lastReadMs     = 0;
+static uint32_t      adcAccumulator = 0;
+static uint8_t       adcCount       = 0;
+
 void initWaterProbePins() {
   pinMode(blueLedPin, OUTPUT);
 }
@@ -26,39 +32,56 @@ uint8_t classifyWaterLevel(uint16_t adc) {
   return WATER_LT_5;
 }
 
+// Start the asynchronous sampling process (10 samples, spaced 20ms apart)
 void beginWaterSample() {
-  waterProbing = true;
+  if (isSampling) return; // Already running
+  
+  isSampling     = true;
+  adcAccumulator = 0;
+  adcCount       = 0;
+  lastReadMs     = 0;
+  waterProbing   = true;
+  
   if (config.ledEnabled) setBlueLed(true);
-
-  // Discard the first reading to clear internal ADC switching/cache state
-  analogRead(A0);
-  delay(5);
-
-  uint32_t sum = 0;
-  sum += analogRead(A0);
-  delay(5);
-  sum += analogRead(A0);
-  delay(5);
-  sum += analogRead(A0);
-
-  waterAdcRaw       = (uint16_t)(sum / 3);
-  waterLevelIndex   = classifyWaterLevel(waterAdcRaw);
-  waterVoltage      = (float)waterAdcRaw * 3.3f / 1023.0f;
-  waterValid        = true;
-  waterProbePresent = true; // Constantly connected now
-  lastWaterSampleMs = millis();
-
-  if (config.ledEnabled) setBlueLed(false);
-  waterProbing = false;
-
-  publishWaterStatus();
 }
 
-// Drive automatic sampling every 15 seconds
+// Driven every loop tick. Performs non-blocking oversampling.
 void updateWaterSample() {
   unsigned long now = millis();
-  if (lastWaterSampleMs == 0 || now - lastWaterSampleMs >= 15000) {
-    beginWaterSample();
+  
+  if (isSampling) {
+    if (lastReadMs == 0 || now - lastReadMs >= 20) {
+      uint16_t val = analogRead(A0);
+      
+      // Discard the first reading (index 0) to bypass the 5ms ADC cache.
+      // Accumulate the subsequent 10 readings.
+      if (adcCount > 0) {
+        adcAccumulator += val;
+      }
+      
+      adcCount++;
+      lastReadMs = now;
+      
+      if (adcCount == 11) { // 1 discarded + 10 accumulated
+        waterAdcRaw       = (uint16_t)(adcAccumulator / 10);
+        waterLevelIndex   = classifyWaterLevel(waterAdcRaw);
+        waterVoltage      = (float)waterAdcRaw * 3.3f / 1023.0f;
+        waterValid        = true;
+        waterProbePresent = true; // Constantly connected now
+        lastWaterSampleMs = millis();
+        
+        if (config.ledEnabled) setBlueLed(false);
+        isSampling   = false;
+        waterProbing = false;
+        
+        publishWaterStatus();
+      }
+    }
+  } else {
+    // Schedule next sample every 15 seconds
+    if (lastWaterSampleMs == 0 || now - lastWaterSampleMs >= 15000) {
+      beginWaterSample();
+    }
   }
 }
 
