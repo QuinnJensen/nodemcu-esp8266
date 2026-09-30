@@ -3,10 +3,16 @@
 **Framework:** Arduino / PlatformIO
 
 ## 1. Environment Configuration
+* **Project Path:** `/home/joe-mcu/m/nodemcu-esp8266`
 * **Platform:** `esp8266`
 * **Board:** `nodemcuv2`
 * **Framework:** `arduino`
-* **Toolchain Specs:** Standard GCC for Xtensa, managed via PlatformIO.
+* **Toolchain Specs:** Standard GCC for Xtensa, managed via PlatformIO Core 6.2+.
+* **CLI & Environment:** PlatformIO Core is installed in `~/.platformio/penv` and symlinked to `~/.local/bin/pio` (included in `$PATH`), allowing direct `pio` invocations.
+* **Build Commands:**
+  * Build sensors: `pio run -e sensors`
+  * Build water heater: `pio run -e water_heater`
+  * Build UHF modulator: `pio run -e uhf_modulator`
 * **Build Stamping:** Automatically includes `BUILD_VERSION` (date/time + git hash) injected via `scripts/set_build_version.py`.
 
 ## 2. Library Dependencies

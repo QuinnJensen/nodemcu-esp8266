@@ -4,9 +4,9 @@ This file maintains the active grounding and build state for the **Firmware Miss
 
 ## 1. System Environment
 *   **Operating System:** Linux
-*   **Active Workspace:** `/home/joe/nodemcu-esp8266`
-*   **PlatformIO Core:** Version 6.1.19
-*   **PlatformIO Executable:** `/home/joe/pio_venv/bin/pio`
+*   **Active Workspace:** `/home/joe-mcu/m/nodemcu-esp8266`
+*   **PlatformIO Core:** Version 6.2.0
+*   **PlatformIO Executable:** `~/.local/bin/pio` (installed in `~/.platformio/penv`, symlinked to PATH)
 *   **Python Version:** Python 3.12.3
 
 ## 2. Project Architecture & Configurations
@@ -36,7 +36,7 @@ The project contains a modular shared library under `lib/shared` and three firmw
     *   Preserved existing threshold array mapping and classification bounds.
 
 ## 4. Environment-Specific Commands
-To run PlatformIO commands from the root directory using the local python virtual environment:
-*   Build sensors: `/home/joe/pio_venv/bin/pio run -e sensors`
-*   Build heater: `/home/joe/pio_venv/bin/pio run -e water_heater`
-*   Build UHF modulator: `/home/joe/pio_venv/bin/pio run -e uhf_modulator`
+To run PlatformIO commands from the project root directory:
+*   Build sensors: `pio run -e sensors`
+*   Build heater: `pio run -e water_heater`
+*   Build UHF modulator: `pio run -e uhf_modulator`
