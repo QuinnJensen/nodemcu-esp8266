@@ -72,6 +72,8 @@
 ### 3.7. Update & Build Management
 * **Build Stamping:** `set_build_version.py` MUST explicitly `touch` `lib/shared/app_state.cpp` to force recompilation and ensure every binary contains a fresh timestamp and git hash.
 * **Dual-Strategy OTA:** All sketches support `ArduinoOTA` (Push) and `ESP8266HTTPUpdateServer` (Web Upload).
+* **Filesystem Synchronization:** Always check and update the LittleFS filesystem (`littlefs.bin` / `uploadfs`) whenever updating firmware—especially when Web UI assets (`data/index.html`) or features change—to prevent discrepancies between firmware capabilities and the web dashboard.
+* **HTTP Update Deployment:** When ArduinoOTA (port 8266) is blocked across routed subnets or firewalls, firmware and filesystem binaries can be deployed reliably via HTTP POST to `/update` (`curl -F "firmware=@firmware.bin" ...` or `curl -F "filesystem=@littlefs.bin" ...`).
 * **Safety Gating:** High-power hardware (SSR) MUST be forced to zero via the `setOtaStartCallback()` before any update proceeds.
 * **Persistent Naming:** 1-Wire sensors are identified by 64-bit ROM addresses and assigned human-readable names persisted in `sensors.json`.
 
