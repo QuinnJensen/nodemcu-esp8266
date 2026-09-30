@@ -73,15 +73,32 @@ Sketches enable optional shared-lib features via build flags:
 Requires [PlatformIO Core](https://docs.platformio.org/en/latest/core/installation/index.html).
 
 ```bash
+# Build firmware
 pio run -e sensors
 pio run -e water_heater
 pio run -e uhf_modulator
 
+# Build LittleFS filesystem images
+pio run -e <env> -t buildfs
+
+# Flash via USB / local subnet ArduinoOTA
 pio run -e <env> -t upload
 pio run -e <env> -t uploadfs   # uploads data/ to LittleFS
 
+# Flash via HTTP Update Server (recommended across routed subnets/firewalls)
+curl -F "firmware=@.pio/build/<env>/firmware.bin" http://<device-ip>/update
+curl -F "filesystem=@.pio/build/<env>/littlefs.bin" http://<device-ip>/update
+
 pio device monitor -e <env>
 ```
+
+> **Important:** Always check and update the LittleFS filesystem (`uploadfs` or `/update`) whenever firmware is updated to ensure web UI assets match active firmware capabilities.
+
+---
+
+## Hardware Diagnostics & Reliability
+
+- **1-Wire Temperature Sensors:** For troubleshooting erratic/jumping temperature readings or suspected clone DS18B20 sensors, see [`DS18B20-FAILURE-ANALYSIS.md`](DS18B20-FAILURE-ANALYSIS.md) for ROM fingerprinting, silicon degradation modes, and waterproofing best practices.
 
 ---
 

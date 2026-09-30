@@ -4,26 +4,44 @@ Formerly `the_mountain`. NodeMCU ESP8266 sketch that reads a DS18B20 1-Wire
 temperature network and a KIB K101 water-level probe, publishes MQTT heartbeats,
 and serves a Prometheus `/metrics` endpoint.
 
-## Build
+## Build & Deploy
 
 ```sh
 # From monorepo root
 pio run -e sensors
+
+# Local USB or local subnet OTA:
 pio run -e sensors -t upload
 pio run -e sensors -t uploadfs
+
+# Routed subnet HTTP OTA (reliable when port 8266 is unreachable):
+curl -F "firmware=@.pio/build/sensors/firmware.bin" http://<ip>/update
+curl -F "filesystem=@.pio/build/sensors/littlefs.bin" http://<ip>/update
 ```
+
+> **Note:** Always update the LittleFS filesystem (`uploadfs` or `/update`) whenever firmware is updated, especially if web assets or feature switches have changed.
 
 ## Pin assignments
 
 | Pin | GPIO | Function |
 |-----|------|----------|
-| D0 | 16 | PROBE_ON (water probe enable) |
-| D2 | 4 | 1-Wire bus (DS18B20) |
-| D3 | 0 | Force-portal button (FLASH) |
-| D4 | 2 | Blue LED (active LOW) |
+| D0 | 16 | Unused (excitation removed in water probe v3) |
+| D2 | 4  | 1-Wire bus (DS18B20) |
+| D3 | 0  | Force-portal button (FLASH) |
+| D4 | 2  | Blue LED (active LOW) |
 | D5 | 14 | I2C SDA (SSD1306 OLED) |
 | D6 | 12 | I2C SCL (SSD1306 OLED) |
-| A0 | — | Water probe analog sense |
+| A0 | —  | Water probe analog sense (constant voltage circuit) |
+
+## Feature Switches
+
+Two runtime feature switches are configured on the Settings page or via `POST /api/config/features`:
+- `sensor_network_enabled` (default `true`): When disabled, all physical 1-Wire bus scanning and temperature conversion requests cease immediately. Per-sensor MQTT topics are suppressed, `/api/temps` returns `{"enabled": false}`, manual scans are rejected with HTTP 400, and sensor fields (`sensorcount`, `simulated`, `networkdetected`, `sensors`) are completely omitted from MQTT aggregate status heartbeats and `/api/status`.
+- `water_probe_enabled` (default `true`): When disabled, ADC sampling stops. Water MQTT publishes are suppressed, `/api/water` returns `{"enabled": false}`, manual samples are rejected with HTTP 400, and the `water` object is completely omitted from heartbeats, `/api/status`, and `/api/config`.
+
+## 1-Wire Diagnostics & Sensor Failure Analysis
+
+If a DS18B20 sensor begins reporting erratic or jumping temperatures while still passing CRC checks, consult the detailed field guide in [`DS18B20-FAILURE-ANALYSIS.md`](../../DS18B20-FAILURE-ANALYSIS.md) covering clone silicon identification (ROM serial with `00 00 00`), capacitive register degradation, and moisture ingress in waterproof stainless capsules.
 
 ## MQTT topics
 
