@@ -39,11 +39,14 @@
 
 ### 3.3. Feature Switches
 * **Granular Controls:** Supports independent runtime toggles for `water_probe_enabled` and `sensor_network_enabled`, configured via a dedicated panel on the Web UI Settings tab (both enabled by default).
-* **Main Loop Bypass:** When a feature is disabled, the main loop completely bypasses its real-time hardware logic and telemetry gathering.
+* **Strict Zero-Probing:** When a feature is disabled, all physical bus and ADC probing MUST immediately halt (return early from `scanSensors()`, `requestTemperatureConversion()`, `readTemperatures()`, `beginWaterSample()`). Zero 1-Wire transactions and zero ADC conversions should occur.
+* **Payload Field Omission:** Aggregated MQTT status heartbeats (`publishAggregateStatus`, `publishHeaterStatus`, `publishUhfStatus`) and web `/api/status` payloads MUST completely omit disabled telemetry fields (`sensorcount`, `simulated`, `networkdetected`, `sensors`, and `water` objects), rather than reporting zeros, nulls, or empty arrays.
+* **API Endpoint Guarding:** Dedicated status endpoints (`/api/temps`, `/api/water`) must return `{"enabled": false}` when disabled. Manual trigger endpoints (`/api/sensors/scan`, `/api/water/sample`) must reject requests with HTTP 400.
 * **Web UI Graceful Degradation:** Dashboard tabs and cards corresponding to disabled features are greyed out/blanked and contain hotlinks back to the Settings tab.
 * **OLED Visibility:** Disabled features are hidden or excluded from display rotations on the on-board OLED display.
 * **MQTT & Metrics Suppression:** 
   * MQTT commands targeted at a disabled feature return a JSON error reply.
+  * Per-sensor and water MQTT topics are suppressed when the feature is disabled.
   * Prometheus metrics corresponding to the disabled feature are suppressed/lobotomized.
 
 ### 3.4. Water Probe v3 Architecture
@@ -72,8 +75,9 @@
 ### 3.7. Update & Build Management
 * **Build Stamping:** `set_build_version.py` MUST explicitly `touch` `lib/shared/app_state.cpp` to force recompilation and ensure every binary contains a fresh timestamp and git hash.
 * **Dual-Strategy OTA:** All sketches support `ArduinoOTA` (Push) and `ESP8266HTTPUpdateServer` (Web Upload).
-* **Filesystem Synchronization:** Always check and update the LittleFS filesystem (`littlefs.bin` / `uploadfs`) whenever updating firmware—especially when Web UI assets (`data/index.html`) or features change—to prevent discrepancies between firmware capabilities and the web dashboard.
+* **Filesystem Synchronization (Mandatory Check):** Whenever firmware is updated or deployed, the developer/agent MUST check whether web UI assets or LittleFS files have changed and flash the LittleFS filesystem (`littlefs.bin` / `uploadfs`) in lockstep with the firmware to prevent UI/capability mismatches.
 * **HTTP Update Deployment:** When ArduinoOTA (port 8266) is blocked across routed subnets or firewalls, firmware and filesystem binaries can be deployed reliably via HTTP POST to `/update` (`curl -F "firmware=@firmware.bin" ...` or `curl -F "filesystem=@littlefs.bin" ...`).
+* **Sensor Diagnostics Reference:** For suspected sensor hardware failures or erratic readings passing CRC, consult [`DS18B20-FAILURE-ANALYSIS.md`](file:///home/joe-mcu/m/nodemcu-esp8266/DS18B20-FAILURE-ANALYSIS.md) for clone silicon ROM fingerprints and moisture ingress failure modes.
 * **Safety Gating:** High-power hardware (SSR) MUST be forced to zero via the `setOtaStartCallback()` before any update proceeds.
 * **Persistent Naming:** 1-Wire sensors are identified by 64-bit ROM addresses and assigned human-readable names persisted in `sensors.json`.
 
