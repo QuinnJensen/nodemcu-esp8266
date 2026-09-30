@@ -28,6 +28,7 @@ uint8_t classifyWaterLevel(uint16_t adc) {
 
 // Perform a simple average of 3 conversions every 15 seconds
 void beginWaterSample() {
+  if (!config.waterProbeEnabled) return;
   if (waterProbing) return; // Prevent re-entry
   waterProbing = true;
 
@@ -59,6 +60,7 @@ void beginWaterSample() {
 
 // Drive automatic sampling every 15 seconds
 void updateWaterSample() {
+  if (!config.waterProbeEnabled) return;
   unsigned long now = millis();
   if (lastWaterSampleMs == 0 || now - lastWaterSampleMs >= 15000) {
     beginWaterSample();
@@ -66,6 +68,7 @@ void updateWaterSample() {
 }
 
 void appendWaterToJson(JsonDocument& doc) {
+  if (!config.waterProbeEnabled) return;
   JsonObject water = doc.createNestedObject("water");
   water["enabled"]             = true;
   water["heartbeatintervalms"] = config.waterHeartbeatIntervalMs;

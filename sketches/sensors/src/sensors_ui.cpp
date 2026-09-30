@@ -113,19 +113,25 @@ static void sensorsMetricsExtra(String& m) {
 
 // ── Web /api/status extras ─────────────────────────────────────────────────
 static void sensorsStatusJson(JsonDocument& doc) {
-  doc["sensorcount"]     = sensorCount;
-  doc["simulated"]       = useFakeSensors;
-  doc["networkdetected"] = sensorNetworkDetected;
-  appendWaterToJson(doc);
+  if (config.sensorNetworkEnabled) {
+    doc["sensorcount"]     = sensorCount;
+    doc["simulated"]       = useFakeSensors;
+    doc["networkdetected"] = sensorNetworkDetected;
+  }
+  if (config.waterProbeEnabled) {
+    appendWaterToJson(doc);
+  }
 }
 
 // ── Web /api/config extras ─────────────────────────────────────────────────
 static void sensorsConfigJson(JsonDocument& doc) {
-  JsonObject water = doc.createNestedObject("water");
-  water["intervalms"] = config.waterHeartbeatIntervalMs;
-  JsonArray thresholds = water.createNestedArray("thresholds");
-  for (uint8_t i = 0; i < waterthresholdcount; i++) thresholds.add(config.waterThresholds[i]);
-  doc["topics"]["water"] = waterTopic;
+  if (config.waterProbeEnabled) {
+    JsonObject water = doc.createNestedObject("water");
+    water["intervalms"] = config.waterHeartbeatIntervalMs;
+    JsonArray thresholds = water.createNestedArray("thresholds");
+    for (uint8_t i = 0; i < waterthresholdcount; i++) thresholds.add(config.waterThresholds[i]);
+    doc["topics"]["water"] = waterTopic;
+  }
 }
 
 // ── /help additions ────────────────────────────────────────────────────────
@@ -142,6 +148,15 @@ static bool sensorsHelp() {
 // ── Sensor-specific routes ─────────────────────────────────────────────────
 static void handleApiTemps() {
   DynamicJsonDocument doc(2048);
+  if (!config.sensorNetworkEnabled) {
+    doc["enabled"]         = false;
+    doc["sensorcount"]     = 0;
+    doc["networkdetected"] = false;
+    doc["simulated"]       = false;
+    doc.createNestedArray("sensors");
+    webSendJsonDoc(doc);
+    return;
+  }
   doc["sensorcount"]        = sensorCount;
   doc["simulated"]          = useFakeSensors;
   doc["networkdetected"]    = sensorNetworkDetected;
@@ -162,17 +177,30 @@ static void handleApiTemps() {
 
 static void handleApiWater() {
   StaticJsonDocument<512> doc;
+  if (!config.waterProbeEnabled) {
+    doc["enabled"] = false;
+    webSendJsonDoc(doc);
+    return;
+  }
   appendWaterToJson(doc);
   webSendJsonDoc(doc);
 }
 
 static void handleApiScanSensors() {
+  if (!config.sensorNetworkEnabled) {
+    webSendError("sensor network feature is disabled", 400);
+    return;
+  }
   webRequestSensorScan = true;
   setStatusMessage("scan queued", 1200);
   webSendOk("scan queued");
 }
 
 static void handleApiSampleWater() {
+  if (!config.waterProbeEnabled) {
+    webSendError("water probe feature is disabled", 400);
+    return;
+  }
   webRequestWaterSample = true;
   setStatusMessage("water queued", 1200);
   webSendOk("water sample queued");
@@ -221,16 +249,20 @@ static void sensorsRoutes() {
 static void sensorsDeferred() {
   if (webRequestSensorScan) {
     webRequestSensorScan = false;
-    setStatusMessage("scan running", 1200);
-    scanSensors(true);
-    yield();
-    readTemperatures();
-    lastSensorSampleMs = millis();
-    yield();
+    if (config.sensorNetworkEnabled) {
+      setStatusMessage("scan running", 1200);
+      scanSensors(true);
+      yield();
+      readTemperatures();
+      lastSensorSampleMs = millis();
+      yield();
+    }
   }
   if (webRequestWaterSample) {
     webRequestWaterSample = false;
-    beginWaterSample();
+    if (config.waterProbeEnabled) {
+      beginWaterSample();
+    }
   }
 }
 

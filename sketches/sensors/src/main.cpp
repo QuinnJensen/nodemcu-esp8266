@@ -24,11 +24,17 @@
 void registerSensorsUiHooks();
 
 static void onMqttConnected() {
-  scanSensors(true);
-  readTemperatures();
-  beginWaterSample();
+  if (config.sensorNetworkEnabled) {
+    scanSensors(true);
+    readTemperatures();
+  }
+  if (config.waterProbeEnabled) {
+    beginWaterSample();
+  }
   publishAggregateStatus();
-  publishPerSensorStatuses();
+  if (config.sensorNetworkEnabled) {
+    publishPerSensorStatuses();
+  }
   mqttOnlinePublished = true;
 }
 

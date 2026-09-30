@@ -3,6 +3,7 @@
 #include "sensor_bus.h"
 #include <math.h>
 #include "app_state.h"
+#include "app_config.h"
 #include "sensor_names.h"
 #include "display_ui.h"
 
@@ -55,6 +56,7 @@ static void loadFakeSensors() {
 }
 
 void scanSensors(bool force) {
+  if (!config.sensorNetworkEnabled) return;
   if (!force && lastSensorRescanMs > 0 && millis() - lastSensorRescanMs < sensorrescanintervalms) return;
   lastSensorRescanMs = millis();
 
@@ -108,6 +110,7 @@ void scanSensors(bool force) {
 }
 
 void requestTemperatureConversion() {
+  if (!config.sensorNetworkEnabled) return;
   if (useFakeSensors || sensorCount == 0) return;
   pulseSpinnerDot(900);
   flashBlueLed(30);
@@ -117,6 +120,7 @@ void requestTemperatureConversion() {
 }
 
 void collectTemperatureResults() {
+  if (!config.sensorNetworkEnabled) return;
   if (useFakeSensors || !conversionPending) return;
   conversionPending = false;
   for (uint8_t i = 0; i < sensorCount; i++) {
@@ -134,6 +138,7 @@ void collectTemperatureResults() {
 }
 
 void readTemperatures() {
+  if (!config.sensorNetworkEnabled) return;
   if (useFakeSensors) return;
   pulseSpinnerDot(900);
   flashBlueLed(30);
@@ -154,6 +159,7 @@ void readTemperatures() {
 }
 
 void sampleSensors() {
+  if (!config.sensorNetworkEnabled) return;
   scanSensors();
   requestTemperatureConversion();
 }

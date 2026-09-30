@@ -37,25 +37,31 @@ void publishAggregateStatus() {
   doc["mqttpublishcount"] = mqttPublishCount;
   doc["prometheusport"]   = config.prometheusPort;
 
-  doc["sensorcount"]      = sensorCount;
-  doc["simulated"]        = useFakeSensors;
-  doc["networkdetected"]  = sensorNetworkDetected;
+  if (config.sensorNetworkEnabled) {
+    doc["sensorcount"]      = sensorCount;
+    doc["simulated"]        = useFakeSensors;
+    doc["networkdetected"]  = sensorNetworkDetected;
+  }
 
   String ts = currentTimestampString();
   if (ts.length()) doc["timestamp"] = ts;
 
-  appendWaterToJson(doc);
+  if (config.waterProbeEnabled) {
+    appendWaterToJson(doc);
+  }
 
-  JsonArray sensors = doc.createNestedArray("sensors");
-  for (uint8_t i = 0; i < sensorCount; i++) {
-    JsonObject s = sensors.createNestedObject();
-    s["index"]     = i + 1;
-    s["name"]      = sensorNames[i];
-    s["address"]   = sensorAddressString(i);
-    s["connected"] = sensorPresent[i];
-    if (!isnan(sensorTempsC[i])) {
-      s["tempc"] = sensorTempsC[i];
-      s["tempf"] = sensorTempsC[i] * 9.0f / 5.0f + 32.0f;
+  if (config.sensorNetworkEnabled) {
+    JsonArray sensors = doc.createNestedArray("sensors");
+    for (uint8_t i = 0; i < sensorCount; i++) {
+      JsonObject s = sensors.createNestedObject();
+      s["index"]     = i + 1;
+      s["name"]      = sensorNames[i];
+      s["address"]   = sensorAddressString(i);
+      s["connected"] = sensorPresent[i];
+      if (!isnan(sensorTempsC[i])) {
+        s["tempc"] = sensorTempsC[i];
+        s["tempf"] = sensorTempsC[i] * 9.0f / 5.0f + 32.0f;
+      }
     }
   }
 
@@ -68,6 +74,7 @@ void publishAggregateStatus() {
 }
 
 void publishPerSensorStatus(uint8_t i) {
+  if (!config.sensorNetworkEnabled) return;
   if (!mqtt.connected() || i >= sensorCount) return;
 
   DynamicJsonDocument doc(1024);
@@ -99,11 +106,13 @@ void publishPerSensorStatus(uint8_t i) {
 }
 
 void publishPerSensorStatuses() {
+  if (!config.sensorNetworkEnabled) return;
   for (uint8_t i = 0; i < sensorCount; i++)
     publishPerSensorStatus(i);
 }
 
 void publishWaterStatus() {
+  if (!config.waterProbeEnabled) return;
   if (!mqtt.connected()) {
     consoleLog(CLOG_WARN, "[TX] publishWaterStatus: MQTT not connected.");
     return;
@@ -140,11 +149,17 @@ void publishCommandResult(const char* type, bool ok, const char* msg) {
 
 void initialSampleAndPublish() {
   consoleLog(CLOG_INFO, "Boot: initial sample and publish starting.");
-  scanSensors(true);
-  readTemperatures();
-  beginWaterSample();
+  if (config.sensorNetworkEnabled) {
+    scanSensors(true);
+    readTemperatures();
+  }
+  if (config.waterProbeEnabled) {
+    beginWaterSample();
+  }
   publishAggregateStatus();
-  publishPerSensorStatuses();
+  if (config.sensorNetworkEnabled) {
+    publishPerSensorStatuses();
+  }
   mqttOnlinePublished = true;
   consoleLog(CLOG_INFO, "Boot: initial publish complete.");
 }

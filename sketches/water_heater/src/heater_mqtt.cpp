@@ -51,17 +51,19 @@ void publishHeaterStatus(bool retained) {
   if (ts.length()) doc["timestamp"] = ts;
   appendHeaterStateToJson(doc);
 #ifdef SHARED_LIB_USE_ONEWIRE
-  doc["sensorcount"] = sensorCount;
-  JsonArray sensors = doc.createNestedArray("sensors");
-  for (uint8_t i = 0; i < sensorCount; i++) {
-    JsonObject s = sensors.createNestedObject();
-    s["index"]     = i + 1;
-    s["name"]      = sensorNames[i];
-    s["address"]   = sensorAddressString(i);
-    s["connected"] = sensorPresent[i];
-    if (!isnan(sensorTempsC[i])) {
-      s["tempc"] = sensorTempsC[i];
-      s["tempf"] = sensorTempsC[i] * 9.0f / 5.0f + 32.0f;
+  if (config.sensorNetworkEnabled) {
+    doc["sensorcount"] = sensorCount;
+    JsonArray sensors = doc.createNestedArray("sensors");
+    for (uint8_t i = 0; i < sensorCount; i++) {
+      JsonObject s = sensors.createNestedObject();
+      s["index"]     = i + 1;
+      s["name"]      = sensorNames[i];
+      s["address"]   = sensorAddressString(i);
+      s["connected"] = sensorPresent[i];
+      if (!isnan(sensorTempsC[i])) {
+        s["tempc"] = sensorTempsC[i];
+        s["tempf"] = sensorTempsC[i] * 9.0f / 5.0f + 32.0f;
+      }
     }
   }
 #endif
@@ -70,6 +72,7 @@ void publishHeaterStatus(bool retained) {
 
 #ifdef SHARED_LIB_USE_ONEWIRE
 void publishPerSensorStatuses() {
+  if (!config.sensorNetworkEnabled) return;
   if (!mqtt.connected()) return;
 
   for (uint8_t i = 0; i < sensorCount; i++) {
