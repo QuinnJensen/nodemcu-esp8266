@@ -28,7 +28,8 @@ static void sensorsDisplayBody() {
     else if (useFakeSensors) display.print(" sim");
   }
 
-  for (uint8_t row = 0; row < 2; row++) {
+  uint8_t maxRows = config.waterProbeEnabled ? 2 : 3;
+  for (uint8_t row = 0; row < maxRows; row++) {
     uint8_t y = 28 + (row * 10);
     display.setCursor(0, y);
     if (!config.sensorNetworkEnabled) {
@@ -37,6 +38,9 @@ static void sensorsDisplayBody() {
     }
     if (sensorCount == 0) {
       if (row == 0) display.print("no sensors");
+      continue;
+    }
+    if (sensorCount <= maxRows && row >= sensorCount) {
       continue;
     }
     uint8_t idx = (displayStartSensor + row) % sensorCount;
@@ -49,17 +53,17 @@ static void sensorsDisplayBody() {
       display.print("F");
     }
   }
-  display.setCursor(0, 48);
-  display.print("Water ");
-  if (!config.waterProbeEnabled) {
-    display.print("disabled");
-  } else if (waterProbing) {
-    display.print("[probing]");
-  } else {
-    display.print(waterLevelLabel(waterLevelIndex));
-    display.print(" ");
-    display.print(waterVoltage, 2);
-    display.print("V");
+  if (config.waterProbeEnabled) {
+    display.setCursor(0, 48);
+    display.print("Water ");
+    if (waterProbing) {
+      display.print("[probing]");
+    } else {
+      display.print(waterLevelLabel(waterLevelIndex));
+      display.print(" ");
+      display.print(waterVoltage, 2);
+      display.print("V");
+    }
   }
 }
 

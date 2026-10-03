@@ -48,10 +48,15 @@ void runScheduledTasks() {
     lastAggregateHeartbeatMs = now;
   }
 
+  uint8_t visibleRows = config.waterProbeEnabled ? 2 : 3;
   static unsigned long lastSensorScroll = 0;
-  if (sensorCount > 2 && now - lastSensorScroll >= 3000) {
-    displayStartSensor = (displayStartSensor + 2) % sensorCount;
-    lastSensorScroll = now;
+  if (sensorCount > visibleRows) {
+    if (now - lastSensorScroll >= 3000) {
+      displayStartSensor = (displayStartSensor + visibleRows) % sensorCount;
+      lastSensorScroll = now;
+    }
+  } else {
+    displayStartSensor = 0;
   }
 
   static unsigned long lastRssiUpdate = 0;
