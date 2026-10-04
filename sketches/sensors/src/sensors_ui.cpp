@@ -92,6 +92,8 @@ static void sensorsMetricsExtra(String& m) {
     m += "water_valid{" + wb + "} " + String(waterValid ? 1 : 0) + "\n";
     m += "water_adc_raw{" + wb + "} " + String(waterAdcRaw) + "\n";
     m += "water_voltage_v{" + wb + "} " + String(waterVoltage, 4) + "\n";
+    m += "water_adc_last{" + wb + "} " + String(waterAdcLast) + "\n";
+    m += "water_voltage_last_v{" + wb + "} " + String(waterVoltageLast, 4) + "\n";
     m += "water_level_index{" + wb + "} " + String(int(waterLevelIndex)) + "\n";
     m += "water_heartbeat_interval_ms{" + wb + "} " + String(config.waterHeartbeatIntervalMs) + "\n";
     m += "water_last_sample_seconds{" + wb + "} " + String(lastWaterSampleMs > 0 ? ((millis() - lastWaterSampleMs) / 1000UL) : 0) + "\n";

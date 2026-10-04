@@ -51,7 +51,7 @@
 
 ### 3.4. Water Probe v3 Architecture
 * **Constant Voltage Circuit:** The probe uses a constant voltage source on `A0` (eliminating the old `PROBE_EN` GPIO `D0` line, freeing `D0` as unused).
-* **Low-Noise Sampling Routine:** Every 15 seconds, the A0 input is sampled using a simple average of 3 readings spaced by 1ms (with the first read discarded to clear any multiplexer cache state).
+* **Low-Noise Sampling & Filtering Routine:** Every 15 seconds, avoiding active 1-Wire conversions, A0 is sampled 16 times across a 17.6ms window (spanning a full 60Hz mains cycle). The 4 lowest and 4 highest outliers are discarded, and the middle 8 are averaged into `adc_last` and `voltage_last`. An Exponential Moving Average (EMA, alpha=0.25) smooths the long-term baseline (`adc` and `voltage`), and a +/-5 count hysteresis deadband with 3-cycle (45s) temporal oversight recovery eliminates boundary flapping.
 * **Wi-Fi Modem-Sleep Suppression:** Calling `WiFi.setSleepMode(WIFI_NONE_SLEEP)` during boot keeps the RF block permanently on. This stabilizes the internal bandgap reference and the 3.3V power rails, achieving high ADC accuracy and eliminating current draw ripples.
 * **MQTT Topic Alignment:** Water probe status is published under `config.mcuBaseTopic` (e.g. `stat/mcu/mountain/mwater/water`) instead of the general `config.sensorBaseTopic` (`stat/w1/...`), aligning telemetry with the MCU administrative hierarchy.
 * **Real-time Voltage Indicators:** The thresholds card dynamically calculates and displays corresponding DC voltages ($\text{Voltage} = \text{ADC} \times \frac{3.3}{1023}$) next to threshold inputs, updating in real time via JavaScript `oninput` handlers.

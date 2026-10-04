@@ -126,6 +126,10 @@ void beginWaterSample() {
   }
   uint16_t instantaneousAdc = (uint16_t)(sum / 8);
 
+  // Store instantaneous aggregated values from this sample episode
+  waterAdcLast = instantaneousAdc;
+  waterVoltageLast = (float)waterAdcLast * 3.3f / 1023.0f;
+
   // Exponential Moving Average (alpha = 0.25: 25% new sample, 75% history)
   if (!waterValid || waterAdcRaw == 0) {
     waterAdcRaw = instantaneousAdc;
@@ -164,6 +168,8 @@ void appendWaterToJson(JsonDocument& doc) {
   water["probe_present"]       = waterProbePresent;
   water["adc"]                 = waterAdcRaw;
   water["voltage"]             = waterVoltage;
+  water["adc_last"]            = waterAdcLast;
+  water["voltage_last"]        = waterVoltageLast;
   water["valid"]               = waterValid;
   water["levelindex"]          = waterLevelIndex;
   water["level"]               = waterLevelLabel(waterLevelIndex);

@@ -380,7 +380,7 @@ function renderDashboard(){
       waterProbeDisabledOverlay +
       `<div class='muted'>Water Level</div>`+
       `<div class='kpi'>${esc(w.level||'-')}</div>`+
-      `<div class='small muted'>ADC ${w.adc??0} &middot; ${Number(w.voltage||0).toFixed(2)}V</div>`+
+      `<div class='small muted'>ADC: ${w.adc??0} (last: ${w.adc_last??0}) &middot; ${Number(w.voltage||0).toFixed(2)}V (last: ${Number(w.voltage_last||0).toFixed(2)}V)</div>`+
     `</div>`;
 
   const scanBtnDisabled = !cfg.sensor_network_enabled ? "disabled" : "";
@@ -466,7 +466,7 @@ function renderWater(){
   
   const liveEl=document.getElementById('water-live-card');
   if(liveEl){
-    liveEl.innerHTML=`<h3>Live Water Probe</h3><p><b>Level:</b> ${esc(w.level||'-')}</p><p><b>Reading valid:</b> ${fmtBool(!!w.valid)}</p><p><b>ADC:</b> ${w.adc??0}</p><p><b>Voltage:</b> ${Number(w.voltage||0).toFixed(2)}V</p><p><b>Last sample age:</b> ${ageSec(w.sampleagems)}</p><div class='actions'><button class='btn btn-action' onclick="postAction('/api/water/sample')">Force Probe</button><button class='btn secondary' onclick='refreshAll()'>Refresh</button></div>`;
+    liveEl.innerHTML=`<h3>Live Water Probe</h3><p><b>Level:</b> ${esc(w.level||'-')}</p><p><b>Reading valid:</b> ${fmtBool(!!w.valid)}</p><p><b>ADC (avg):</b> ${w.adc??0}</p><p><b>Voltage (avg):</b> ${Number(w.voltage||0).toFixed(2)}V</p><p><b>ADC (last):</b> ${w.adc_last??0}</p><p><b>Voltage (last):</b> ${Number(w.voltage_last||0).toFixed(2)}V</p><p><b>Last sample age:</b> ${ageSec(w.sampleagems)}</p><div class='actions'><button class='btn btn-action' onclick="postAction('/api/water/sample')">Force Probe</button><button class='btn secondary' onclick='refreshAll()'>Refresh</button></div>`;
   }
   
   const threshEl=document.getElementById('water-thresh-card');
