@@ -42,11 +42,17 @@ The project contains a modular shared library under `lib/shared` and three firmw
     *   **Routed Network OTA Flashing:** When flashing devices across routed subnets where ArduinoOTA (port 8266) times out, use the HTTP update server:
         *   Firmware: `curl -F "firmware=@.pio/build/<env>/firmware.bin" http://<ip>/update`
         *   Filesystem: `curl -F "filesystem=@.pio/build/<env>/littlefs.bin" http://<ip>/update`
+*   **1-Wire Driver Vendoring, Calibration & Diagnostics:**
+    *   Vendored `OneWire` (`2.3.8`) into `lib/OneWire` with ESP8266 `IRAM_ATTR`, `10–200 µs` presence-window polling, 3-sample majority voting in `read_bit()`, and `measureBusRiseTimeUs()` / `drivenLow` / search-failure diagnostics.
+    *   Added persistent LittleFS bus calibration (`/onewire_cal.json`) in `lib/shared/sensor_bus.cpp` that measures rise time and presence timing on boot, adjusts `readSampleDelayUs`, and logs `[1W-CAL]` changes.
+    *   Added boot-time `D2` (`GPIO4`) register/mode self-checks (`[1W-GPIO]`, including `D1`/`D7` comparison) and 3-pass `scanSensors()` diagnostics (`[1W-SCAN]`).
+*   **Simulated Sensor Removal:** Removed the 3 synthetic fallback sensors (`sensor1..3`) from `lib/shared/sensor_bus.cpp`; when no physical sensors are present, `sensorcount` is `0` and `simulated` is `false`.
+*   **MQTT Publish Stack Hardening:** Heap-allocated the `mqttbuffersize` buffer in `publishJsonDocToTopic()` (`lib/shared/mqtt_client.cpp`).
 
 ## 4. Environment-Specific Commands
 To run PlatformIO commands from the project root directory:
 *   Build sensors: `pio run -e sensors`
 *   Build heater: `pio run -e water_heater`
 *   Build UHF modulator: `pio run -e uhf_modulator`
-*   Build LittleFS image: `pio run -e <env> -t buildfs`
+*   Build LittleFS image: `cd sketches/<sketch> && pio run -t buildfs`
 *   OTA deploy via HTTP: `curl -F "firmware=@.pio/build/<env>/firmware.bin" http://<ip>/update`

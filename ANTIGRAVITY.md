@@ -32,7 +32,8 @@
 * **Strict Non-Blocking:** All network (MQTT, WiFi) and hardware (Water Probe, SSR Modulator) logic must be asynchronous state machines. Never use `delay()` in the `loop()`.
 * **Resource Serialization:** ESP8266 web fetches must be serialized (single-flight). JSON responses MUST use direct streaming (`serializeJson(doc, client)`) to prevent heap exhaustion.
 * **Async MQTT Handshake:** MQTT connections MUST use a non-blocking TCP handshake (short initial timeout + background polling) to prevent loop freezes during network outages.
-* **Stack Hardening:** Large JSON documents (>= 1KB) MUST be heap-allocated (`DynamicJsonDocument`) to prevent stack overflows on the fragile 4KB ESP8266 stack.
+* **Stack Hardening:** Large JSON documents (>= 1KB) and MQTT publish buffers (`mqttbuffersize`) MUST be heap-allocated (`DynamicJsonDocument`, `new (std::nothrow)`) to prevent stack overflows on the fragile 4KB ESP8266 stack.
+* **Vendored `lib/OneWire`:** `OneWire` (`2.3.8`) is vendored in `lib/OneWire` with ESP8266 `IRAM_ATTR` (`CRIT_TIMING`), `10–200 µs` presence-window polling in `reset()`, 3-sample majority voting in `read_bit()`, and bus rise-time / `drivenLow` / search-failure diagnostics.
 * **120Hz Jitter-Free SSR Control:** High-frequency switching uses a 120Hz Timer1 ISR. Bresenham decisions happen every 2nd tick (60Hz). Gate pulses are deterministic (16.67ms) and handled entirely within the ISR to eliminate main-loop jitter.
 * **IRAM-Safe ISRs:** All ISR code MUST be 100% self-contained in IRAM. Avoid multiplication (`*`) and division (`/`); use bitwise shifts (`<<`, `>>`) instead.
 * **DRAM ISR Data:** All variables accessed within an ISR MUST be explicitly placed in DRAM using `__attribute__((section(".iram.data")))` to prevent crashes during Flash memory lockouts.
@@ -80,6 +81,8 @@
 * **Sensor Diagnostics Reference:** For suspected sensor hardware failures or erratic readings passing CRC, consult [`DS18B20-FAILURE-ANALYSIS.md`](file:///home/joe-mcu/m/nodemcu-esp8266/DS18B20-FAILURE-ANALYSIS.md) for clone silicon ROM fingerprints and moisture ingress failure modes.
 * **Safety Gating:** High-power hardware (SSR) MUST be forced to zero via the `setOtaStartCallback()` before any update proceeds.
 * **Persistent Naming:** 1-Wire sensors are identified by 64-bit ROM addresses and assigned human-readable names persisted in `sensors.json`.
+* **1-Wire Bus Calibration & Diagnostics:** On boot, `initSensorBus()` runs `runGpioStartupDiag()` (`[1W-GPIO]`) and `calibrateOneWireBus()` (`[1W-CAL]`), measuring bus rise time and presence pulse timing, compensating `readSampleDelayUs`, comparing against `/onewire_cal.json` in LittleFS, and logging changes. `scanSensors()` retries up to 3 passes and logs raw ROM/CRC/glitch/failure diagnostics (`[1W-SCAN]`) via `consoleLog`. When no physical sensors are found, `sensorCount` is `0` (`simulated` is always `false`; synthetic fallback sensors were removed).
+* **LittleFS Build Directory:** Run `pio run -t buildfs` from the individual sketch directory (e.g., `cd sketches/sensors && pio run -t buildfs`) so PlatformIO picks up that sketch's `data/` folder.
 
 ## 4. Hardware Pin Assignments
 * **A0:** Water Probe (Analog input).

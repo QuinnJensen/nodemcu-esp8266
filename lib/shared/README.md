@@ -14,7 +14,7 @@ Shared PlatformIO library for NodeMCU / ESP8266 sketches in this monorepo.
 | `display_ui` | SSD1306 OLED status rendering and animated spinner. Sketches register `setDisplayBodyRenderer()` to draw their middle-of-screen content. Handles disabled feature display text. |
 | `web_ui` | Web UI plumbing (status/config/console/fs endpoints, `/api/config/features`). Sketches add device-specific JSON fields, routes, console help, and deferred actions via the `setWeb*Fn()` hooks. |
 | `console_log` | Ring-buffer text console (32 entries × 256 chars) consumed by the browser via `/api/console/log?after=<seq>`. |
-| `sensor_bus` | DS18B20 1-Wire bus scan + temperature reading (compile in with `SHARED_LIB_USE_ONEWIRE`). Strictly halts all 1-Wire bus activity when `sensor_network_enabled` is false. |
+| `sensor_bus` | DS18B20 1-Wire bus scan + temperature reading using vendored `lib/OneWire` (compile in with `SHARED_LIB_USE_ONEWIRE`). Includes persistent `/onewire_cal.json` boot timing calibration, `[1W-GPIO]` / `[1W-SCAN]` diagnostics, and halts all bus activity when `sensor_network_enabled` is false (no simulated fallback sensors). |
 | `sensor_names` | Persistent address→name mapping in `/sensor_names.json`. Compile in with `SHARED_LIB_USE_ONEWIRE`. |
 | `util` | IP-to-string, timestamp, topic sanitizer helpers, NTP setup. |
 
