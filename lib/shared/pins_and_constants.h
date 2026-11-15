@@ -34,6 +34,7 @@
 // ── LittleFS file paths ──────────────────────────────────────────────────────
 #define configfile "/config.json"
 #define sensornamefile "/sensor_names.json"
+#define onewirecalfile "/onewire_cal.json"
 
 // ── Timing constants ─────────────────────────────────────────────────────────
 #define sensorheartbeatintervalms 15000UL
