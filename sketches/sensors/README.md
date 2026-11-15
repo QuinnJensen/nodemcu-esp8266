@@ -35,8 +35,9 @@ curl -F "filesystem=@.pio/build/sensors/littlefs.bin" http://<ip>/update
 
 ## Feature Switches
 
-Two runtime feature switches are configured on the Settings page or via `POST /api/config/features`:
+Runtime feature switches are configured on the Settings page or via `POST /api/config/features`:
 - `sensor_network_enabled` (default `true`): When disabled, all physical 1-Wire bus scanning and temperature conversion requests cease immediately. Per-sensor MQTT topics are suppressed, `/api/temps` returns `{"enabled": false}`, manual scans are rejected with HTTP 400, and sensor fields (`sensorcount`, `simulated`, `networkdetected`, `sensors`) are completely omitted from MQTT aggregate status heartbeats and `/api/status`.
+- `simulated_sensors_enabled` (default `false`): When enabled (and `sensor_network_enabled` is `true` with no physical 1-Wire sensors detected), falls back to 3 synthetic sensors (`sensor1..3`) with `simulated: true`. Disabled by default so real-time dashboards are not polluted with synthetic noise.
 - `water_probe_enabled` (default `true`): When disabled, ADC sampling stops. Water MQTT publishes are suppressed, `/api/water` returns `{"enabled": false}`, manual samples are rejected with HTTP 400, and the `water` object is completely omitted from heartbeats, `/api/status`, and `/api/config`. On the SSD1306 OLED display, the Water status line is replaced with a 3rd sensor row (displaying 3 sensors instead of 2).
 
 ## 1-Wire Diagnostics & Sensor Failure Analysis

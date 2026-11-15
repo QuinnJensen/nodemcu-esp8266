@@ -39,7 +39,7 @@
 * **DRAM ISR Data:** All variables accessed within an ISR MUST be explicitly placed in DRAM using `__attribute__((section(".iram.data")))` to prevent crashes during Flash memory lockouts.
 
 ### 3.3. Feature Switches
-* **Granular Controls:** Supports independent runtime toggles for `water_probe_enabled` and `sensor_network_enabled`, configured via a dedicated panel on the Web UI Settings tab (both enabled by default).
+* **Granular Controls:** Supports independent runtime toggles for `water_probe_enabled` (default `true`), `sensor_network_enabled` (default `true`), and `simulated_sensors_enabled` (default `false`), configured via a dedicated panel on the Web UI Settings tab.
 * **Strict Zero-Probing:** When a feature is disabled, all physical bus and ADC probing MUST immediately halt (return early from `scanSensors()`, `requestTemperatureConversion()`, `readTemperatures()`, `beginWaterSample()`). Zero 1-Wire transactions and zero ADC conversions should occur.
 * **Payload Field Omission:** Aggregated MQTT status heartbeats (`publishAggregateStatus`, `publishHeaterStatus`, `publishUhfStatus`) and web `/api/status` payloads MUST completely omit disabled telemetry fields (`sensorcount`, `simulated`, `networkdetected`, `sensors`, and `water` objects), rather than reporting zeros, nulls, or empty arrays.
 * **API Endpoint Guarding:** Dedicated status endpoints (`/api/temps`, `/api/water`) must return `{"enabled": false}` when disabled. Manual trigger endpoints (`/api/sensors/scan`, `/api/water/sample`) must reject requests with HTTP 400.
