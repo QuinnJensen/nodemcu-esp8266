@@ -8,6 +8,9 @@
 #include "util.h"
 #include "console_log.h"
 #include "display_ui.h"
+#ifdef SHARED_LIB_USE_ONEWIRE
+#include "sensor_bus.h"
+#endif
 
 static WebStatusJsonFn   sStatusFn  = nullptr;
 static WebConfigJsonFn   sConfigFn  = nullptr;
@@ -91,6 +94,7 @@ static void handleApiConfig() {
   doc["led_enabled"]       = config.ledEnabled;
   doc["water_probe_enabled"]   = config.waterProbeEnabled;
   doc["sensor_network_enabled"] = config.sensorNetworkEnabled;
+  doc["simulated_sensors_enabled"] = config.simulatedSensorsEnabled;
   doc["timezone"]          = config.timezone;
 
   JsonObject topics = doc.createNestedObject("topics");
@@ -246,9 +250,24 @@ static void handlePostFeaturesConfig() {
       changed = true;
     }
   }
+  bool simChanged = false;
+  if (webServer.hasArg("simulated_sensors_enabled")) {
+    String val = webServer.arg("simulated_sensors_enabled");
+    bool enabled = (val == "1" || val.equalsIgnoreCase("true"));
+    if (config.simulatedSensorsEnabled != enabled) {
+      config.simulatedSensorsEnabled = enabled;
+      changed = true;
+      simChanged = true;
+    }
+  }
   if (changed) {
     saveConfig();
     setStatusMessage("features saved", 1500);
+#ifdef SHARED_LIB_USE_ONEWIRE
+    if (simChanged && config.sensorNetworkEnabled) {
+      scanSensors(true);
+    }
+#endif
   }
   webSendOk("features saved");
 }

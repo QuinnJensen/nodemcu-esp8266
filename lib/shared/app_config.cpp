@@ -119,6 +119,7 @@ bool loadConfig() {
   config.ledEnabled = true;
   config.waterProbeEnabled = true;
   config.sensorNetworkEnabled = true;
+  config.simulatedSensorsEnabled = false;
 #ifdef SHARED_LIB_USE_WATER_PROBE
   config.waterHeartbeatIntervalMs = defaultwaterheartbeatintervalms;
   loadDefaultWaterThresholds();
@@ -144,6 +145,7 @@ bool loadConfig() {
   config.ledEnabled = doc["ledenabled"] | true;
   config.waterProbeEnabled = doc["water_probe_enabled"] | true;
   config.sensorNetworkEnabled = doc["sensor_network_enabled"] | true;
+  config.simulatedSensorsEnabled = doc["simulated_sensors_enabled"] | false;
 
 #ifdef SHARED_LIB_USE_WATER_PROBE
   config.waterHeartbeatIntervalMs = doc["waterheartbeatintervalms"] | defaultwaterheartbeatintervalms;
@@ -174,6 +176,7 @@ bool saveConfig() {
   doc["ledenabled"]             = config.ledEnabled;
   doc["water_probe_enabled"]     = config.waterProbeEnabled;
   doc["sensor_network_enabled"]   = config.sensorNetworkEnabled;
+  doc["simulated_sensors_enabled"] = config.simulatedSensorsEnabled;
 
 #ifdef SHARED_LIB_USE_WATER_PROBE
   doc["waterheartbeatintervalms"] = config.waterHeartbeatIntervalMs;

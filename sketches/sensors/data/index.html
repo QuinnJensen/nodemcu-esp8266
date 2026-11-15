@@ -555,6 +555,7 @@ function renderSettings(){
   const ledChecked=c.led_enabled?'checked':'';
   const waterProbeChecked=c.water_probe_enabled?'checked':'';
   const sensorNetworkChecked=c.sensor_network_enabled?'checked':'';
+  const simSensorsChecked=c.simulated_sensors_enabled?'checked':'';
   const ip=esc((state.status||{}).ip||'0.0.0.0');
   const metricsPort=c.prometheusport??9111;
   const metricsUrl=`http://${ip}:${metricsPort}/metrics`;
@@ -632,6 +633,15 @@ function renderSettings(){
             `</span>`+
           `</label>`+
         `</div>`+
+        `<div style='display:flex;align-items:center;justify-content:space-between;padding:.5rem 0'>`+
+          `<div><div style='font-size:.9rem'>Simulated Sensors</div><div class='small muted'>Fallback to 3 synthetic sensors when no 1-Wire sensors are found</div></div>`+
+          `<label style='position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0'>`+
+            `<input type='checkbox' id='sim-sensors-toggle' ${simSensorsChecked} style='opacity:0;width:0;height:0;position:absolute'>`+
+            `<span id='sim-sensors-slider' style='position:absolute;inset:0;background:${c.simulated_sensors_enabled?'var(--accent)':'#333'};border-radius:24px;cursor:pointer;transition:.2s'>`+
+              `<span id='sim-sensors-knob' style='position:absolute;width:18px;height:18px;left:${c.simulated_sensors_enabled?'23':'3'}px;bottom:3px;background:${c.simulated_sensors_enabled?'#fff':'#888'};border-radius:50%;transition:.2s'></span>`+
+            `</span>`+
+          `</label>`+
+        `</div>`+
         `<div class='actions' style='margin-top:.75rem'><button class='btn btn-action' type='submit'>Save Features</button></div>`+
       `</form>`+
     `</div>`;
@@ -661,6 +671,15 @@ function renderSettings(){
     snSlider.style.background=snToggle.checked?'var(--accent)':'#333';
     snKnob.style.left=snToggle.checked?'23px':'3px';
     snKnob.style.background=snToggle.checked?'#fff':'#888';
+  });
+
+  const simToggle=document.getElementById('sim-sensors-toggle');
+  const simSlider=document.getElementById('sim-sensors-slider');
+  const simKnob=document.getElementById('sim-sensors-knob');
+  if(simToggle)simToggle.addEventListener('change',()=>{
+    simSlider.style.background=simToggle.checked?'var(--accent)':'#333';
+    simKnob.style.left=simToggle.checked?'23px':'3px';
+    simKnob.style.background=simToggle.checked?'#fff':'#888';
   });
 
   renderSensorNamesTable(true);
@@ -704,9 +723,10 @@ async function saveFeatures(ev){
   ev.preventDefault();
   const wp=document.getElementById('water-probe-toggle').checked;
   const sn=document.getElementById('sensor-network-toggle').checked;
+  const sim=document.getElementById('sim-sensors-toggle').checked;
   setBusy(true);stopPoll();
   try{
-    await postForm('/api/config/features',{water_probe_enabled:wp?'1':'0',sensor_network_enabled:sn?'1':'0'});
+    await postForm('/api/config/features',{water_probe_enabled:wp?'1':'0',sensor_network_enabled:sn?'1':'0',simulated_sensors_enabled:sim?'1':'0'});
     state.config=await fetchJson('/api/config');
     snapshotConfig();
     forceRenderSettings();

@@ -46,7 +46,7 @@ The project contains a modular shared library under `lib/shared` and three firmw
     *   Vendored `OneWire` (`2.3.8`) into `lib/OneWire` with ESP8266 `IRAM_ATTR`, `10–200 µs` presence-window polling, 3-sample majority voting in `read_bit()`, and `measureBusRiseTimeUs()` / `drivenLow` / search-failure diagnostics.
     *   Added persistent LittleFS bus calibration (`/onewire_cal.json`) in `lib/shared/sensor_bus.cpp` that measures rise time and presence timing on boot, adjusts `readSampleDelayUs`, and logs `[1W-CAL]` changes.
     *   Added boot-time `D2` (`GPIO4`) register/mode self-checks (`[1W-GPIO]`, including `D1`/`D7` comparison) and 3-pass `scanSensors()` diagnostics (`[1W-SCAN]`).
-*   **Simulated Sensor Removal:** Removed the 3 synthetic fallback sensors (`sensor1..3`) from `lib/shared/sensor_bus.cpp` because they polluted real-time dashboards with noise; when no physical sensors are present, `sensorcount` is `0` and `simulated` is `false`.
+*   **Switchable Simulated Sensors:** Synthetic fallback sensors (`sensor1..3`) are gated behind `simulated_sensors_enabled` (default `false`) in `AppConfig` and toggled via `/api/config/features` / Settings UI. When `false` (default) and no physical sensors are present, `sensorcount` is `0` and `simulated` is `false` so real-time dashboards are not polluted with noise.
 *   **MQTT Publish Stack Hardening:** Heap-allocated the `mqttbuffersize` buffer in `publishJsonDocToTopic()` (`lib/shared/mqtt_client.cpp`).
 
 ## 4. Environment-Specific Commands

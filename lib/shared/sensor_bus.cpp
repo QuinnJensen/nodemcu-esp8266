@@ -10,6 +10,10 @@
 #include "display_ui.h"
 #include "console_log.h"
 
+static const char* fakeSensorNames[3]     = {"sensor1", "sensor2", "sensor3"};
+static const char* fakeSensorAddresses[3] = {"28DEAD2BAD0001A1", "28DEAD2BAD0002B2", "28DEAD2BAD0003C3"};
+static float       fakeSensorTempsC[3]    = {21.1f, 22.8f, 24.4f};
+
 bool conversionPending = false;
 unsigned long conversionRequestedMs = 0;
 
@@ -270,6 +274,34 @@ String defaultSensorNameForAddress(const DeviceAddress addr) {
   return String(buf);
 }
 
+static void clearFakeSensorEffects() {
+  useFakeSensors = false;
+  for (uint8_t i = 0; i < maxsensors; i++) {
+    sensorPresent[i] = false;
+    sensorTempsC[i] = NAN;
+    sensorNames[i][0] = 0;
+    memset(sensorAddresses[i], 0, sizeof(DeviceAddress));
+  }
+  sensorCount = 0;
+  displayStartSensor = 0;
+}
+
+static void loadFakeSensors() {
+  useFakeSensors = true;
+  sensorCount = 3;
+  for (uint8_t i = 0; i < maxsensors; i++) {
+    sensorPresent[i] = false;
+    sensorTempsC[i] = NAN;
+    sensorNames[i][0] = 0;
+    memset(sensorAddresses[i], 0, sizeof(DeviceAddress));
+  }
+  for (uint8_t i = 0; i < 3; i++) {
+    sensorPresent[i] = true;
+    sensorTempsC[i] = fakeSensorTempsC[i];
+    strlcpy(sensorNames[i], fakeSensorNames[i], sensornamelen);
+  }
+}
+
 void scanSensors(bool force) {
   if (!config.sensorNetworkEnabled) return;
   if (!force && lastSensorRescanMs > 0 && millis() - lastSensorRescanMs < sensorrescanintervalms) return;
@@ -348,6 +380,7 @@ void scanSensors(bool force) {
   }
 
   if (found > 0) {
+    if (useFakeSensors && !everHadPhysicalSensors) clearFakeSensorEffects();
     sensorNetworkDetected = true;
     everHadPhysicalSensors = true;
     useFakeSensors = false;
@@ -360,6 +393,8 @@ void scanSensors(bool force) {
     resolveSensorNamesFromAddresses();
     saveSensorNames();
     if (duplicateFound) setStatusMessage("1-wire dup skipped", 2000);
+  } else if (!sensorNetworkDetected && config.simulatedSensorsEnabled) {
+    loadFakeSensors();
   } else {
     useFakeSensors = false;
     sensorCount = 0;
@@ -423,6 +458,7 @@ void sampleSensors() {
 }
 
 String sensorAddressString(uint8_t i) {
+  if (useFakeSensors && i < 3) return String(fakeSensorAddresses[i]);
   return addressToString(sensorAddresses[i]);
 }
 #endif // SHARED_LIB_USE_ONEWIRE

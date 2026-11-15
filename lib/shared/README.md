@@ -6,7 +6,7 @@ Shared PlatformIO library for NodeMCU / ESP8266 sketches in this monorepo.
 
 | Module | Description |
 |---|---|
-| `app_config` | LittleFS-persisted MQTT/device configuration. Manages runtime feature switches (`sensor_network_enabled`, `water_probe_enabled`). Sketches can add/load extra fields via `setAppConfigExtraHooks()`. |
+| `app_config` | LittleFS-persisted MQTT/device configuration. Manages runtime feature switches (`sensor_network_enabled`, `water_probe_enabled`, `simulated_sensors_enabled`). Sketches can add/load extra fields via `setAppConfigExtraHooks()`. |
 | `app_state` | Runtime state variables. 1-Wire / water-probe sections are compile-time gated by `SHARED_LIB_USE_ONEWIRE` / `SHARED_LIB_USE_WATER_PROBE`. |
 | `wifi_portal` | WiFiManager captive portal + reconnect logic. Display callbacks are sketch-supplied via `setWifiPortalDisplayCallbacks()`. |
 | `mqtt_client` | PubSubClient wrapper with a non-blocking reconnect state machine. Publish + subscribe helpers. |
@@ -14,7 +14,7 @@ Shared PlatformIO library for NodeMCU / ESP8266 sketches in this monorepo.
 | `display_ui` | SSD1306 OLED status rendering and animated spinner. Sketches register `setDisplayBodyRenderer()` to draw their middle-of-screen content. Handles disabled feature display text. |
 | `web_ui` | Web UI plumbing (status/config/console/fs endpoints, `/api/config/features`). Sketches add device-specific JSON fields, routes, console help, and deferred actions via the `setWeb*Fn()` hooks. |
 | `console_log` | Ring-buffer text console (32 entries × 256 chars) consumed by the browser via `/api/console/log?after=<seq>`. |
-| `sensor_bus` | DS18B20 1-Wire bus scan + temperature reading using vendored `lib/OneWire` (compile in with `SHARED_LIB_USE_ONEWIRE`). Includes persistent `/onewire_cal.json` boot timing calibration, `[1W-GPIO]` / `[1W-SCAN]` diagnostics, and halts all bus activity when `sensor_network_enabled` is false (no simulated fallback sensors). |
+| `sensor_bus` | DS18B20 1-Wire bus scan + temperature reading using vendored `lib/OneWire` (compile in with `SHARED_LIB_USE_ONEWIRE`). Includes persistent `/onewire_cal.json` boot timing calibration, `[1W-GPIO]` / `[1W-SCAN]` diagnostics, halts all bus activity when `sensor_network_enabled` is false, and optionally falls back to 3 simulated sensors (`sensor1..3`) when `simulated_sensors_enabled` is true. |
 | `sensor_names` | Persistent address→name mapping in `/sensor_names.json`. Compile in with `SHARED_LIB_USE_ONEWIRE`. |
 | `util` | IP-to-string, timestamp, topic sanitizer helpers, NTP setup. |
 
