@@ -272,6 +272,17 @@ static void handlePostFeaturesConfig() {
   webSendOk("features saved");
 }
 
+static bool rebootPending = false;
+static unsigned long rebootRequestedMs = 0;
+
+static void handlePostSystemReboot() {
+  rebootPending = true;
+  rebootRequestedMs = millis();
+  setStatusMessage("rebooting...", 2000);
+  consoleLog(CLOG_WARN, "[web] Reboot requested");
+  webSendOk("rebooting");
+}
+
 void startMainWebUi() {
   webServer.on("/",           HTTP_GET, handleHomePage);
   webServer.on("/index.html", HTTP_GET, handleHomePage);
@@ -285,6 +296,7 @@ void startMainWebUi() {
   webServer.on("/api/config/display",  HTTP_POST, handlePostDisplayConfig);
   webServer.on("/api/config/features", HTTP_POST, handlePostFeaturesConfig);
   webServer.on("/api/config/time",     HTTP_POST, handlePostTimeConfig);
+  webServer.on("/api/system/reboot",   HTTP_POST, handlePostSystemReboot);
   if (sRoutesFn) sRoutesFn();
   webServer.onNotFound([]() {
     if (webServer.uri().startsWith("/api/")) { webSendError("not found", 404); return; }
@@ -313,5 +325,9 @@ void serviceDeferredWebActions() {
     webConsoleCommandPending = "";
     extern void handleCommandJson(const String&);  // sketch must define
     handleCommandJson(cmd);
+  }
+  if (rebootPending && (millis() - rebootRequestedMs >= 250)) {
+    rebootPending = false;
+    ESP.restart();
   }
 }

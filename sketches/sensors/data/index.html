@@ -810,7 +810,22 @@ function renderSystem() {
       `<p><b>Build:</b> <span class='mono'>${esc(s.build_version)}</span></p>` +
       `<p><b>Free Heap:</b> ${s.freeheap} bytes</p>` +
       `<p><b>Uptime:</b> ${Math.floor((s.uptime_ms||0)/1000)}s</p>` +
+      `<div class='actions'><button class='btn warn btn-action' type='button' onclick='confirmReboot()'>Reboot Device</button></div>` +
     `</div>`;
+}
+
+async function confirmReboot() {
+  if (!confirm('Reboot the device now? It will be offline for ~10 seconds.')) return;
+  try {
+    setBusy(true);
+    await postForm('/api/system/reboot', {});
+    showToast('Device rebooting...');
+    setTimeout(() => refreshAll(), 12000);
+  } catch (e) {
+    showToast('Reboot failed: ' + e.message, true);
+  } finally {
+    setBusy(false);
+  }
 }
 
 document.getElementById('file-modal').addEventListener('click',function(e){if(e.target===this)closeFileModal();});
