@@ -434,7 +434,21 @@ function renderTemps(){
   }
   const t=state.temps||{};
   const sensors=t.sensors||[];
-  document.getElementById('page-temps').innerHTML=`<div class='grid two'><div class='card'><h3>Temperature Network</h3><p><b>Detected:</b> ${t.sensorcount??0}</p><p><b>Physical network seen:</b> ${fmtBool(!!t.networkdetected)}</p><p><b>Simulated sensors:</b> ${fmtBool(!!t.simulated)}</p><div class='actions'><button class='btn btn-action' onclick="postScan()">Scan / Rediscover</button><button class='btn secondary' onclick='refreshAll()'>Refresh</button></div></div><div class='card'><h3>Sampling</h3><p><b>Last sample age:</b> ${ageSec(t.last_sample_ms_age)}</p><p><b>Last rescan age:</b> ${ageSec(t.last_rescan_ms_age)}</p><p class='footer-note'>Use this page to watch the current 1-Wire roster and temperatures without changing MQTT behavior.</p></div></div><div class='card'><h3>Live Sensors</h3><table class='table'><thead><tr><th>#</th><th>Name</th><th>Address</th><th>State</th><th>C</th><th>F</th></tr></thead><tbody>${sensors.length?sensors.map(s=>`<tr><td>${s.index}</td><td>${esc(s.name)}</td><td class='mono'>${esc(s.address)}</td><td>${s.connected?`<span class='pill good'>connected</span>`:`<span class='pill bad'>disconnected</span>`}</td><td>${s.tempc===null?'-':Number(s.tempc).toFixed(2)}</td><td>${s.tempc===null?'-':tempF(s.tempc)}</td></tr>`).join(''):`<tr><td colspan='6' class='muted'>No sensors available.</td></tr>`}</tbody></table></div>`;
+  const d=t.bus_diag;
+  const fmtRise=v=>{
+    if(v===65535) return 'STUCK_LOW';
+    if(v===65534) return '>100 us';
+    if(v===65533) return 'STUCK_HIGH';
+    return (v===undefined||v===null)?'-':`${v} us`;
+  };
+  const diagHtml = (d&&d.measured)
+    ? `<p><b>Bus rise time (median):</b> ${fmtRise(d.rise_us)}</p>`+
+      `<p><b>Read-back samples (boot):</b> ${(d.rise_samples_us||[]).map(fmtRise).join(', ')}</p>`+
+      `<p><b>Read sample delay:</b> ${d.read_delay_us??'-'} us</p>`+
+      `<p><b>Idle / Pull-low:</b> ${d.idle_high?'HIGH':'LOW'} / ${d.driven_low_ok?'OK':'FAIL'}</p>`+
+      `<p><b>Presence pulse:</b> ${d.reset_ok?`${d.pres_start_us}..${d.pres_end_us} us`:'NONE'}</p>`
+    : `<p class='muted'>Not measured at boot.</p>`;
+  document.getElementById('page-temps').innerHTML=`<div class='grid two'><div class='card'><h3>Temperature Network</h3><p><b>Detected:</b> ${t.sensorcount??0}</p><p><b>Physical network seen:</b> ${fmtBool(!!t.networkdetected)}</p><p><b>Simulated sensors:</b> ${fmtBool(!!t.simulated)}</p><div class='actions'><button class='btn btn-action' onclick="postScan()">Scan / Rediscover</button><button class='btn secondary' onclick='refreshAll()'>Refresh</button></div></div><div class='card'><h3>Sampling</h3><p><b>Last sample age:</b> ${ageSec(t.last_sample_ms_age)}</p><p><b>Last rescan age:</b> ${ageSec(t.last_rescan_ms_age)}</p><p class='footer-note'>Use this page to watch the current 1-Wire roster and temperatures without changing MQTT behavior.</p></div></div><div class='card'><h3>Live Sensors</h3><table class='table'><thead><tr><th>#</th><th>Name</th><th>Address</th><th>State</th><th>C</th><th>F</th></tr></thead><tbody>${sensors.length?sensors.map(s=>`<tr><td>${s.index}</td><td>${esc(s.name)}</td><td class='mono'>${esc(s.address)}</td><td>${s.connected?`<span class='pill good'>connected</span>`:`<span class='pill bad'>disconnected</span>`}</td><td>${s.tempc===null?'-':Number(s.tempc).toFixed(2)}</td><td>${s.tempc===null?'-':tempF(s.tempc)}</td></tr>`).join(''):`<tr><td colspan='6' class='muted'>No sensors available.</td></tr>`}</tbody></table></div><div class='card'><h3>1-Wire Bus Diagnostics (Boot)</h3>${diagHtml}<p class='footer-note'>Measured once at boot with pull-up read-back samples (not repeated on scans).</p></div>`;
 }
 
 function updateThreshVolts(input, spanId) {

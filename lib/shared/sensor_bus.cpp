@@ -14,6 +14,7 @@ static const char* fakeSensorNames[3]     = {"sensor1", "sensor2", "sensor3"};
 static const char* fakeSensorAddresses[3] = {"28DEAD2BAD0001A1", "28DEAD2BAD0002B2", "28DEAD2BAD0003C3"};
 static float       fakeSensorTempsC[3]    = {21.1f, 22.8f, 24.4f};
 
+OneWireBootDiag oneWireBootDiag;
 bool conversionPending = false;
 unsigned long conversionRequestedMs = 0;
 
@@ -26,10 +27,11 @@ static String formatAddrHex(const DeviceAddress addr) {
   return String(buf);
 }
 
-static uint16_t measureMedianRiseUs() {
+static uint16_t measureMedianRiseUs(uint16_t rawSamples[3]) {
   uint16_t s[3];
   for (uint8_t i = 0; i < 3; i++) {
     s[i] = oneWire.measureBusRiseTimeUs();
+    rawSamples[i] = s[i];
     delayMicroseconds(50);
   }
   // Sort 3 values
@@ -61,7 +63,8 @@ static void calibrateOneWireBus() {
     }
   }
 
-  uint16_t riseUs = measureMedianRiseUs();
+  uint16_t riseSamples[3] = {0xFFFF, 0xFFFF, 0xFFFF};
+  uint16_t riseUs = measureMedianRiseUs(riseSamples);
   uint8_t resetOk = oneWire.reset();
   bool idleHigh = oneWire.getLastResetIdleHigh();
   bool drivenLowOk = oneWire.getLastResetDrivenLowOk();
@@ -81,6 +84,16 @@ static void calibrateOneWireBus() {
   }
 
   oneWire.setReadSampleDelayUs(compDelay);
+
+  oneWireBootDiag.measured = true;
+  for (uint8_t i = 0; i < 3; i++) oneWireBootDiag.riseSamplesUs[i] = riseSamples[i];
+  oneWireBootDiag.riseMedianUs = riseUs;
+  oneWireBootDiag.idleHigh = idleHigh;
+  oneWireBootDiag.drivenLowOk = drivenLowOk;
+  oneWireBootDiag.resetOk = (bool)resetOk;
+  oneWireBootDiag.presStartUs = presStart;
+  oneWireBootDiag.presEndUs = presEnd;
+  oneWireBootDiag.readDelayUs = compDelay;
 
   bool changed = !hasPrev ||
                  (riseUs != prevRise && (riseUs >= 100 || prevRise >= 100 || abs((int)riseUs - (int)prevRise) >= 2)) ||

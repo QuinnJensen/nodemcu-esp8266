@@ -178,6 +178,19 @@ static void handleApiTemps() {
     if (isnan(sensorTempsC[i])) s["tempc"] = nullptr;
     else s["tempc"] = sensorTempsC[i];
   }
+  if (oneWireBootDiag.measured) {
+    JsonObject diag = doc.createNestedObject("bus_diag");
+    diag["measured"] = true;
+    diag["rise_us"] = oneWireBootDiag.riseMedianUs;
+    JsonArray samples = diag.createNestedArray("rise_samples_us");
+    for (uint8_t i = 0; i < 3; i++) samples.add(oneWireBootDiag.riseSamplesUs[i]);
+    diag["idle_high"] = oneWireBootDiag.idleHigh;
+    diag["driven_low_ok"] = oneWireBootDiag.drivenLowOk;
+    diag["reset_ok"] = oneWireBootDiag.resetOk;
+    diag["pres_start_us"] = oneWireBootDiag.presStartUs;
+    diag["pres_end_us"] = oneWireBootDiag.presEndUs;
+    diag["read_delay_us"] = oneWireBootDiag.readDelayUs;
+  }
   webSendJsonDoc(doc);
 }
 
